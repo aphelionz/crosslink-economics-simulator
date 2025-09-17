@@ -308,7 +308,7 @@
     <main>
       <header>
         <h1>Crosslink Economics Simulator</h1>
-        <p>The Crosslink v1 economics, from issuance to <strong>you</strong>, a hypothetical single delegator.</p>
+        <p>The Crosslink v1 economics, from issuance to <strong>you</strong> (a hypothetical delegator)</p>
       </header>
 
       <section class="panel">
@@ -317,7 +317,7 @@
             <legend>Conditions</legend>
             <div class="field">
               <label for="finalizer-weight">Finalizer Selection Probability (Weight)</label>
-              <input id="finalizer-weight" name="finalizer-weight" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" aria-describedby="finalizer-weight-note" title="Probability p (0-1) that this finalizer is selected on a given block; also represents its stake share.">
+              <input id="finalizer-weight" name="finalizer-weight" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" aria-describedby="finalizer-weight-note" title="Probability p (0-1) that your finalizer is selected on a given block; also represents its stake share.">
               <details class="selection-dynamics">
                 <summary class="selection-dynamics-title">Selection dynamics</summary>
                 <div class="selection-row">
@@ -327,17 +327,17 @@
                 <span id="expected-picks-tip" class="visually-hidden">μ = p × Blocks per Day. Example: p=0.021 (≈2.1% weight), Blocks/day=1152 → μ≈24.2.</span>
                 <div class="selection-row">
                   <span class="selection-label" id="avg-pick-time-label">Avg time between picks:</span>
-                  <span class="selection-value" data-field="avg-pick-time" aria-describedby="avg-pick-time-tip" title="Average gap between blocks that pay this finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler."></span>
+                  <span class="selection-value" data-field="avg-pick-time" aria-describedby="avg-pick-time-tip" title="Average gap between blocks that pay your finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler."></span>
                 </div>
-                <span id="avg-pick-time-tip" class="visually-hidden">Average gap between blocks that pay this finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler.</span>
+                <span id="avg-pick-time-tip" class="visually-hidden">Average gap between blocks that pay your finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler.</span>
               </details>
              </div>
              <div class="field">
-              <label for="commission">Commission (%)</label>
+              <label for="commission">Finalizer Commission (%)</label>
               <input id="commission" name="commission" type="number" min="0" max="100" step="0.1" inputmode="decimal">
             </div>
             <div class="field">
-              <label for="delegator">Example delegator share (%)</label>
+              <label for="delegator">Your Delegation Share (%)</label>
               <input id="delegator" name="delegator" type="number" min="0" max="100" step="0.1" inputmode="decimal">
             </div>
             <div class="button-row">
@@ -378,17 +378,17 @@
         </div>
         <div class="sankey-grid">
           <div>
-            <h3>Issuance → This Finalizer</h3>
+            <h3>Issuance → Your Finalizer</h3>
             <div class="sankey-wrapper" id="sankey-wrapper-issuance">
               <svg id="sankey-issuance" role="img" aria-labelledby="sankey-title-issuance"></svg>
-              <span id="sankey-title-issuance" class="visually-hidden">Sankey diagram showing issuance splitting across the dev fund, miners, and finalizers, with the highlighted finalizer isolated from other finalizers.</span>
+              <span id="sankey-title-issuance" class="visually-hidden">Sankey diagram showing issuance splitting across the dev fund, miners, and finalizers, with your finalizer isolated from other finalizers.</span>
             </div>
           </div>
           <div>
-            <h3>This Finalizer → Delegators</h3>
+            <h3>Your Finalizer → You</h3>
             <div class="sankey-wrapper" id="sankey-wrapper-finalizer">
               <svg id="sankey-finalizer" role="img" aria-labelledby="sankey-title-finalizer"></svg>
-              <span id="sankey-title-finalizer" class="visually-hidden">Sankey diagram showing the highlighted finalizer distributing rewards between commission, the example delegator, and other delegators.</span>
+              <span id="sankey-title-finalizer" class="visually-hidden">Sankey diagram showing your finalizer distributing rewards between commission, you as a delegator, and other delegators.</span>
             </div>
           </div>
         </div>
@@ -396,22 +396,16 @@
 
       <section class="metrics">
         <article class="panel metric-card">
-          <h3>Per <span data-field="scale-word"></span></h3>
-          <div class="info-row"><span>Dev Fund</span><span data-field="dev-per"></span></div>
-          <div class="info-row"><span>Miners</span><span data-field="miner-per"></span></div>
-          <div class="info-row"><span>Stakers (total)</span><span data-field="staker-per"></span></div>
-        </article>
-        <article class="panel metric-card">
-          <h3>Finalizers &amp; Delegators</h3>
-          <div class="info-row"><span>This finalizer (gross)</span><span data-field="per-finalizer"></span></div>
+          <h3>Your Finalizer &amp; Delegators</h3>
+          <div class="info-row"><span>Your finalizer (gross)</span><span data-field="per-finalizer"></span></div>
+          <div class="info-row"><span>Est. pick cadence:</span><span data-field="example-cadence"></span></div>
           <div class="info-row"><span>Commission (all finalizers)</span><span data-field="commission-per"></span></div>
-          <div class="info-row"><span>Delegators (net)</span><span data-field="delegator-net"></span></div>
+          <div class="info-row"><span>All delegators (net)</span><span data-field="delegator-net"></span></div>
         </article>
         <article class="panel metric-card">
-          <h3>Example Delegator</h3>
-          <div class="info-row"><span>Example share</span><span data-field="example-share"></span></div>
-          <div class="info-row"><span>Payout</span><span data-field="example-payout"></span></div>
-          <div class="info-row"><span>Implied selection cadence:</span><span data-field="example-cadence"></span></div>
+          <h3>You (Delegator)</h3>
+          <div class="info-row"><span>Your share</span><span data-field="example-share"></span></div>
+          <div class="info-row"><span>Your payout</span><span data-field="example-payout"></span></div>
           <div class="info-row"><span>Other delegators (network)</span><span data-field="other-delegators"></span></div>
         </article>
       </section>
@@ -810,10 +804,6 @@
         function updateUI() {
           const derived = deriveValues();
 
-          fields["scale-word"].textContent = derived.scaleWord;
-          fields["dev-per"].textContent = formatZecNoScale(derived.devPer);
-          fields["miner-per"].textContent = formatZecNoScale(derived.minerPer);
-          fields["staker-per"].textContent = formatZecNoScale(derived.stakerPer);
           fields["per-finalizer"].textContent = formatZec(derived.perFinalizerPer, derived.scaleSuffix);
           fields["commission-per"].textContent = formatZec(derived.commissionPer, derived.scaleSuffix);
           fields["delegator-net"].textContent = formatZec(derived.delegatorNetPer, derived.scaleSuffix);
@@ -848,7 +838,7 @@
                 "Dev Fund": palette.grey3,
                 Miners: palette.grey4,
                 Finalizers: palette.orange,
-                "This Finalizer": palette.orange,
+                "Your Finalizer": palette.orange,
                 "Other Finalizers": palette.grey2,
               },
               nodeOrder: [
@@ -857,7 +847,7 @@
                 "Miners",
                 "Finalizers",
                 "Other Finalizers",
-                "This Finalizer",
+                "Your Finalizer",
               ],
               nodes: [
                 { name: "Issuance" },
@@ -865,26 +855,26 @@
                 { name: "Miners" },
                 { name: "Finalizers" },
                 { name: "Other Finalizers" },
-                { name: "This Finalizer" },
+                { name: "Your Finalizer" },
               ],
               links: [
                 { source: "Issuance", target: "Dev Fund", value: derived.devPer, color: palette.grey3 },
                 { source: "Issuance", target: "Miners", value: derived.minerPer, color: palette.grey4 },
                 { source: "Issuance", target: "Finalizers", value: derived.stakerPer, color: palette.orange },
                 { source: "Finalizers", target: "Other Finalizers", value: derived.otherFinalizersPer, color: palette.grey2 },
-                { source: "Finalizers", target: "This Finalizer", value: derived.perFinalizerPer, color: palette.orange },
+                { source: "Finalizers", target: "Your Finalizer", value: derived.perFinalizerPer, color: palette.orange },
               ],
               nodeTooltip: (node, derived) => {
                 const base = `${node.name}\n${numberFormatter.format(node.value)} ZEC ${derived.scaleSuffix}`;
-                if (node.name !== "This Finalizer") {
+                if (node.name !== "Your Finalizer") {
                   return base;
                 }
                 const selectionLines = [
                   base,
                   "",
                   "Selection",
-                  `Selection probability: ${derived.selectionProbabilityDisplay} (~${derived.selectionProbabilityPercentDisplay})`,
-                  `Expected picks/day: ${derived.expectedPicksPerDayDisplay}`,
+                  `Your finalizer selection probability: ${derived.selectionProbabilityDisplay} (~${derived.selectionProbabilityPercentDisplay})`,
+                  `Expected picks/day for your finalizer: ${derived.expectedPicksPerDayDisplay}`,
                   `Avg time between picks: ${derived.avgPickTimeDisplay}`,
                   "",
                   "Rewards",
@@ -892,7 +882,7 @@
                   `Gross when selected (per win): ${formatZec(derived.stakerPerBlock, "/ block")}`,
                   `Commission skim (per win): ${formatZec(derived.stakerPerBlock * derived.commissionFrac, "/ block")}`,
                   `Delegators pool (per win): ${formatZec(derived.stakerPerBlock * (1 - derived.commissionFrac), "/ block")}`,
-                  `Example delegator expected per block (time-averaged): ${formatZec(derived.exampleDelegatorPerBlock, "/ block")}`,
+                  `Your expected reward per block (time-averaged): ${formatZec(derived.exampleDelegatorPerBlock, "/ block")}`,
                 ];
                 return selectionLines.join("\n");
               },
@@ -901,35 +891,35 @@
               wrapperId: "sankey-wrapper-finalizer",
               svgId: "sankey-finalizer",
               nodeColors: {
-                "Finalizer": palette.orange,
+                "Your Finalizer": palette.orange,
                 "Commission": palette.grey3,
                 "Delegators": palette.orange,
-                "This Delegator": palette.orange,
+                "You (Delegator)": palette.orange,
                 "Other Delegators": palette.grey4,
               },
               nodeOrder: [
-                "Finalizer",
+                "Your Finalizer",
                 "Commission",
                 "Delegators",
                 "Other Delegators",
-                "This Delegator",
+                "You (Delegator)",
               ],
               nodes: [
-                { name: "Finalizer" },
+                { name: "Your Finalizer" },
                 { name: "Commission" },
                 { name: "Delegators" },
                 { name: "Other Delegators" },
-                { name: "This Delegator" },
+                { name: "You (Delegator)" },
               ],
               links: [
                 {
-                  source: "Finalizer",
+                  source: "Your Finalizer",
                   target: "Commission",
                   value: derived.thisFinalizerCommissionPer,
                   color: palette.grey3,
                 },
                 {
-                  source: "Finalizer",
+                  source: "Your Finalizer",
                   target: "Delegators",
                   value: derived.thisFinalizerDelegatorsPer,
                   color: palette.orange,
@@ -942,7 +932,7 @@
                 },
                 {
                   source: "Delegators",
-                  target: "This Delegator",
+                  target: "You (Delegator)",
                   value: derived.exampleDelegatorPer,
                   color: palette.orange,
                 },
