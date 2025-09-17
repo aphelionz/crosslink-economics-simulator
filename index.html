@@ -1,0 +1,1129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crosslink Economics Simulator</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --surface: #111827;
+        --surface-alt: #070b16;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --border: rgba(148, 163, 184, 0.25);
+        --accent: #f59e0b;
+        --accent-soft: rgba(245, 158, 11, 0.18);
+        /* Sankey label halo tuned for ≥4.5:1 contrast against flow backgrounds in dark mode. */
+        --sankey-label-stroke: rgba(7, 11, 22, 0.82);
+        --sankey-label-stroke: color-mix(in srgb, var(--surface-alt) 82%, transparent);
+        --sankey-label-stroke-light: rgba(226, 232, 240, 0.76);
+        --sankey-label-stroke-light: color-mix(in srgb, var(--surface) 52%, transparent);
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--surface-alt);
+        color: var(--text);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+      }
+      header h1 {
+        font-size: clamp(2rem, 5vw, 2.6rem);
+        margin: 0;
+      }
+      header p {
+        margin: 0.5rem 0 0;
+        max-width: 80ch;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      header p strong {
+        color: var(--accent);
+      }
+      .panel {
+        background: var(--surface);
+        border-radius: 18px;
+        padding: 1.75rem;
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
+        border: 1px solid var(--border);
+      }
+      form.controls {
+        display: grid;
+        gap: 1.5rem;
+      }
+      .sankey-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+      }
+      .sankey-controls select {
+        min-width: 130px;
+      }
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: none;
+        display: grid;
+        gap: 0.75rem;
+      }
+      fieldset legend {
+        font-weight: 600;
+        font-size: 1.05rem;
+        margin-bottom: 0.25rem;
+      }
+      .field {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .selection-dynamics {
+        display: grid;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .selection-dynamics-title {
+        font-size: 0.82rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .selection-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.75rem;
+      }
+      .selection-label {
+        font-size: 0.82rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .selection-value {
+        font-weight: 600;
+        font-size: 1.05rem;
+        text-align: right;
+      }
+      .selection-footnote {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+      small {
+        color: var(--muted);
+      }
+      label {
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+      select,
+      input[type="number"] {
+        appearance: none;
+        font: inherit;
+        padding: 0.55rem 0.65rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.65);
+        color: var(--text);
+      }
+      input[type="number"]:focus,
+      select:focus {
+        outline: 2px solid rgba(245, 158, 11, 0.45);
+        outline-offset: 2px;
+      }
+      button {
+        font: inherit;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 0.55rem 1.15rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: var(--accent-soft);
+        color: var(--accent);
+        cursor: pointer;
+        transition: background 150ms ease, transform 150ms ease;
+      }
+      button:hover {
+        background: rgba(245, 158, 11, 0.28);
+      }
+      button:active {
+        transform: scale(0.98);
+      }
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .sankey-card h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.2rem;
+      }
+      .sankey-wrapper {
+        width: 100%;
+        height: clamp(349px, 59vh, 540px);
+        color: var(--text, #e2e8f0);
+      }
+      .sankey-wrapper svg {
+        width: 100%;
+        height: 100%;
+        color: inherit;
+      }
+      .sankey-labels {
+        pointer-events: none;
+      }
+      .sankey-label-group {
+        pointer-events: none;
+      }
+      .sankey-label-bg {
+        fill: color-mix(in srgb, var(--surface) 78%, transparent);
+        stroke: color-mix(in srgb, var(--sankey-label-stroke, rgba(7, 11, 22, 0.82)) 28%, transparent);
+        stroke-width: 1;
+      }
+      .sankey-label {
+        pointer-events: none;
+        paint-order: stroke fill;
+        stroke: var(--sankey-label-stroke, rgba(7, 11, 22, 0.82));
+        stroke-width: 2.6;
+        stroke-linejoin: round;
+      }
+      @media (prefers-color-scheme: light) {
+        .sankey-label-bg {
+          fill: color-mix(in srgb, var(--surface) 85%, white 15%);
+          stroke: color-mix(
+            in srgb,
+            var(--sankey-label-stroke-light, rgba(241, 245, 249, 0.72)) 34%,
+            transparent
+          );
+        }
+        .sankey-label {
+          stroke: var(--sankey-label-stroke-light, rgba(241, 245, 249, 0.72));
+          stroke-width: 1.8;
+        }
+      }
+      .sankey-grid {
+        display: grid;
+        gap: 1.5rem;
+      }
+      .sankey-grid > div {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .sankey-grid h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .yield-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+      .yield-grid {
+        display: grid;
+        gap: 1rem;
+      }
+      .yield-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .yield-label {
+        font-size: 0.95rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .yield-value {
+        font-size: clamp(1.8rem, 4vw, 2.3rem);
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .visually-hidden {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .metrics {
+        display: grid;
+        gap: 1rem;
+      }
+      .metric-card h3 {
+        margin-top: 0;
+        font-size: 1.05rem;
+        margin-bottom: 0.75rem;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.35rem 0;
+        font-size: 0.95rem;
+      }
+      .info-row span:first-child {
+        color: var(--muted);
+      }
+      .note p {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      .note p:first-child {
+        margin-top: 0;
+      }
+      @media (min-width: 720px) {
+        form.controls {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .metrics {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .yield-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Crosslink Economics Simulator</h1>
+        <p>The Crosslink v1 economics, from issuance to <strong>you</strong>, a hypothetical single delegator.</p>
+      </header>
+
+      <section class="panel">
+        <form class="controls" id="controls" autocomplete="off">
+          <fieldset>
+            <legend>Conditions</legend>
+            <div class="field">
+              <label for="finalizer-weight">Finalizer Selection Probability (Weight)</label>
+              <input id="finalizer-weight" name="finalizer-weight" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" aria-describedby="finalizer-weight-note" title="Probability p (0-1) that this finalizer is selected on a given block; also represents its stake share.">
+              <details class="selection-dynamics">
+                <summary class="selection-dynamics-title">Selection dynamics</summary>
+                <div class="selection-row">
+                  <span class="selection-label" id="expected-picks-label">Expected picks per day:</span>
+                  <span class="selection-value" data-field="expected-picks" aria-describedby="expected-picks-tip" title="μ = p × Blocks per Day. Example: p=0.021 (≈2.1% weight), Blocks/day=1152 → μ≈24.2."></span>
+                </div>
+                <span id="expected-picks-tip" class="visually-hidden">μ = p × Blocks per Day. Example: p=0.021 (≈2.1% weight), Blocks/day=1152 → μ≈24.2.</span>
+                <div class="selection-row">
+                  <span class="selection-label" id="avg-pick-time-label">Avg time between picks:</span>
+                  <span class="selection-value" data-field="avg-pick-time" aria-describedby="avg-pick-time-tip" title="Average gap between blocks that pay this finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler."></span>
+                </div>
+                <span id="avg-pick-time-tip" class="visually-hidden">Average gap between blocks that pay this finalizer: T = 24h ÷ μ (≈ block_time × (1/p)). This is an expectation; actual variance depends on the scheduler.</span>
+              </details>
+             </div>
+             <div class="field">
+              <label for="commission">Commission (%)</label>
+              <input id="commission" name="commission" type="number" min="0" max="100" step="0.1" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label for="delegator">Example delegator share (%)</label>
+              <input id="delegator" name="delegator" type="number" min="0" max="100" step="0.1" inputmode="decimal">
+            </div>
+            <div class="button-row">
+              <button type="button" id="copy-link-button">Copy link to scenario</button>
+              <button type="button" id="reset-button">Reset to defaults</button>
+            </div>
+         </fieldset>
+        </form>
+      </section>
+
+      <section class="panel yield-panel">
+        <div class="yield-grid">
+          <div class="yield-item" title="≈1 block">
+            <span class="yield-label">Per Block</span>
+            <span class="yield-value" data-field="yield-per-block"></span>
+          </div>
+          <div class="yield-item" title="≈1,152 blocks">
+            <span class="yield-label">Per Day</span>
+            <span class="yield-value" data-field="yield-per-day"></span>
+          </div>
+          <div class="yield-item" title="≈420,480 blocks">
+            <span class="yield-label">Per Year</span>
+            <span class="yield-value" data-field="yield-per-year"></span>
+          </div>
+        </div>
+        <small class="selection-footnote">Displayed values are expected rates. Protocol payouts accrue and are realized on unstake (per Crosslink's payout cadence).</small>
+        <small>Rewards ignore fees, slashing, and privacy batching.</small>
+      </section>
+
+      <section class="panel sankey-card">
+        <h2>Issuance Flow</h2>
+        <div class="sankey-controls">
+          <label for="scale-mode">Scale</label>
+          <select id="scale-mode" name="scale-mode">
+            <option value="per-block">Per block</option>
+            <option value="per-day">Per day</option>
+          </select>
+        </div>
+        <div class="sankey-grid">
+          <div>
+            <h3>Issuance → This Finalizer</h3>
+            <div class="sankey-wrapper" id="sankey-wrapper-issuance">
+              <svg id="sankey-issuance" role="img" aria-labelledby="sankey-title-issuance"></svg>
+              <span id="sankey-title-issuance" class="visually-hidden">Sankey diagram showing issuance splitting across the dev fund, miners, and finalizers, with the highlighted finalizer isolated from other finalizers.</span>
+            </div>
+          </div>
+          <div>
+            <h3>This Finalizer → Delegators</h3>
+            <div class="sankey-wrapper" id="sankey-wrapper-finalizer">
+              <svg id="sankey-finalizer" role="img" aria-labelledby="sankey-title-finalizer"></svg>
+              <span id="sankey-title-finalizer" class="visually-hidden">Sankey diagram showing the highlighted finalizer distributing rewards between commission, the example delegator, and other delegators.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article class="panel metric-card">
+          <h3>Per <span data-field="scale-word"></span></h3>
+          <div class="info-row"><span>Dev Fund</span><span data-field="dev-per"></span></div>
+          <div class="info-row"><span>Miners</span><span data-field="miner-per"></span></div>
+          <div class="info-row"><span>Stakers (total)</span><span data-field="staker-per"></span></div>
+        </article>
+        <article class="panel metric-card">
+          <h3>Finalizers &amp; Delegators</h3>
+          <div class="info-row"><span>This finalizer (gross)</span><span data-field="per-finalizer"></span></div>
+          <div class="info-row"><span>Commission (all finalizers)</span><span data-field="commission-per"></span></div>
+          <div class="info-row"><span>Delegators (net)</span><span data-field="delegator-net"></span></div>
+        </article>
+        <article class="panel metric-card">
+          <h3>Example Delegator</h3>
+          <div class="info-row"><span>Example share</span><span data-field="example-share"></span></div>
+          <div class="info-row"><span>Payout</span><span data-field="example-payout"></span></div>
+          <div class="info-row"><span>Implied selection cadence:</span><span data-field="example-cadence"></span></div>
+          <div class="info-row"><span>Other delegators (network)</span><span data-field="other-delegators"></span></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+    <script>
+      (function() {
+        const blockSubsidy = 1.5625;
+        const blocksPerDay = 1152;
+        const blocksPerYear = blocksPerDay * 365;
+        const shareDev = 0.20;
+        const shareMiners = 0.40;
+        const shareStakers = 0.40;
+
+        const palette = {
+          orange: "#f59e0b",
+          grey1: "#1f2937",
+          grey2: "#334155",
+          grey3: "#475569",
+          grey4: "#64748b",
+        };
+
+        const defaults = {
+          scaleMode: "per-block",
+          finalizerSelectionProbability: 0.01,
+          commissionPct: 10,
+          exampleDelegatorPct: 2,
+        };
+
+        const state = { ...defaults };
+
+        const numberFormatter = new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 6,
+        });
+        const yieldFormatter = new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 5,
+        });
+        const percentFormatter = new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 2,
+        });
+        const picksFormatter = new Intl.NumberFormat(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        const probabilityFormatter = new Intl.NumberFormat(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        });
+
+        const scaleSelect = document.getElementById("scale-mode");
+        const finalizerWeightInput = document.getElementById("finalizer-weight");
+        const commissionInput = document.getElementById("commission");
+        const delegatorInput = document.getElementById("delegator");
+        const resetButton = document.getElementById("reset-button");
+        const copyLinkButton = document.getElementById("copy-link-button");
+
+        const fields = Object.fromEntries(
+          Array.from(document.querySelectorAll("[data-field]")).map((el) => [
+            el.getAttribute("data-field"),
+            el,
+          ]),
+        );
+
+        function clamp(value, min, max) {
+          return Math.min(max, Math.max(min, value));
+        }
+
+        function fraction(pct) {
+          return clamp(pct, 0, 100) / 100;
+        }
+
+        function shouldDeferNumericParsing(value) {
+          if (typeof value !== "string") return false;
+          return (
+            value === "" ||
+            value === "-" ||
+            value === "+" ||
+            value.endsWith(".")
+          );
+        }
+
+        function parseScaleModeParam(rawValue) {
+          if (typeof rawValue !== "string") {
+            return state.scaleMode;
+          }
+          const normalized = rawValue.trim().toLowerCase();
+          if (normalized === "day") return "per-day";
+          if (normalized === "block") return "per-block";
+          return state.scaleMode;
+        }
+
+        function applyStateFromQuery() {
+          const params = new URLSearchParams(window.location.search);
+          let changed = false;
+
+          if (params.has("p")) {
+            const parsed = Number.parseFloat(params.get("p"));
+            if (Number.isFinite(parsed)) {
+              const clamped = clamp(parsed, 0, 1);
+              if (state.finalizerSelectionProbability !== clamped) {
+                state.finalizerSelectionProbability = clamped;
+                changed = true;
+              }
+            }
+          }
+
+          if (params.has("c")) {
+            const parsed = Number.parseFloat(params.get("c"));
+            if (Number.isFinite(parsed)) {
+              const clamped = clamp(parsed, 0, 100);
+              if (state.commissionPct !== clamped) {
+                state.commissionPct = clamped;
+                changed = true;
+              }
+            }
+          }
+
+          if (params.has("d")) {
+            const parsed = Number.parseFloat(params.get("d"));
+            if (Number.isFinite(parsed)) {
+              const clamped = clamp(parsed, 0, 100);
+              if (state.exampleDelegatorPct !== clamped) {
+                state.exampleDelegatorPct = clamped;
+                changed = true;
+              }
+            }
+          }
+
+          if (params.has("scale")) {
+            const nextMode = parseScaleModeParam(params.get("scale"));
+            if (nextMode !== state.scaleMode) {
+              state.scaleMode = nextMode;
+              changed = true;
+            }
+          }
+
+          return changed;
+        }
+
+        function syncInputsFromState() {
+          scaleSelect.value = state.scaleMode;
+          finalizerWeightInput.value = state.finalizerSelectionProbability;
+          commissionInput.value = state.commissionPct;
+          delegatorInput.value = state.exampleDelegatorPct;
+        }
+
+        function scaleModeToParam(scaleMode) {
+          return scaleMode === "per-day" ? "day" : "block";
+        }
+
+        function syncURL() {
+          const params = new URLSearchParams();
+          params.set("p", state.finalizerSelectionProbability.toString());
+          params.set("c", state.commissionPct.toString());
+          params.set("d", state.exampleDelegatorPct.toString());
+          params.set("scale", scaleModeToParam(state.scaleMode));
+          const nextQuery = params.toString();
+          const currentQuery = window.location.search.startsWith("?")
+            ? window.location.search.slice(1)
+            : window.location.search;
+          if (currentQuery === nextQuery) {
+            return;
+          }
+          const hash = window.location.hash || "";
+          const newUrl = `${window.location.pathname}?${nextQuery}${hash}`;
+          history.replaceState(null, "", newUrl);
+        }
+
+        const copyButtonDefaultText = copyLinkButton ? copyLinkButton.textContent : "";
+        let copyButtonResetTimer = null;
+
+        function setCopyButtonLabel(label, revertDelay = 2000) {
+          if (!copyLinkButton) return;
+          copyLinkButton.textContent = label;
+          if (copyButtonResetTimer) {
+            window.clearTimeout(copyButtonResetTimer);
+            copyButtonResetTimer = null;
+          }
+          if (revertDelay > 0) {
+            copyButtonResetTimer = window.setTimeout(() => {
+              copyLinkButton.textContent = copyButtonDefaultText;
+              copyButtonResetTimer = null;
+            }, revertDelay);
+          }
+        }
+
+        function fallbackCopyText(value) {
+          const tempInput = document.createElement("input");
+          tempInput.value = value;
+          tempInput.setAttribute("readonly", "");
+          tempInput.style.position = "absolute";
+          tempInput.style.left = "-9999px";
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          tempInput.setSelectionRange(0, tempInput.value.length);
+          const success = document.execCommand("copy");
+          document.body.removeChild(tempInput);
+          return success;
+        }
+
+        async function copyScenarioLink() {
+          if (!copyLinkButton) return;
+          const urlToCopy = window.location.href;
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(urlToCopy);
+              setCopyButtonLabel("Copied!");
+              return;
+            }
+          } catch (error) {
+            // Ignore and attempt fallback below.
+          }
+          const success = fallbackCopyText(urlToCopy);
+          if (success) {
+            setCopyButtonLabel("Copied!");
+          } else {
+            setCopyButtonLabel("Copy failed", 2000);
+          }
+        }
+
+        function attachNumberInputHandlers(input, { min, max, stateKey }) {
+          input.addEventListener("input", (event) => {
+            const rawValue = event.target.value;
+            if (shouldDeferNumericParsing(rawValue)) {
+              return;
+            }
+            const parsed = Number.parseFloat(rawValue);
+            if (!Number.isFinite(parsed)) {
+              return;
+            }
+            const clampedValue = clamp(parsed, min, max);
+            const previousValue = state[stateKey];
+            state[stateKey] = clampedValue;
+            if (clampedValue !== parsed) {
+              event.target.value = `${clampedValue}`;
+            }
+            if (previousValue !== clampedValue) {
+              propagateStateChange();
+            }
+          });
+
+          input.addEventListener("blur", (event) => {
+            const rawValue = event.target.value;
+            const parsed = Number.parseFloat(rawValue);
+            const previousValue = state[stateKey];
+            const nextValue = Number.isFinite(parsed)
+              ? clamp(parsed, min, max)
+              : previousValue;
+            state[stateKey] = nextValue;
+            event.target.value = `${nextValue}`;
+            if (previousValue !== nextValue) {
+              propagateStateChange();
+            }
+          });
+        }
+
+        function formatZec(value, scaleSuffix) {
+          if (!Number.isFinite(value)) return "-";
+          if (Math.abs(value) < 1e-9) return `0 ZEC ${scaleSuffix}`;
+          return `${numberFormatter.format(value)} ZEC ${scaleSuffix}`;
+        }
+
+        function formatZecNoScale(value) {
+          if (!Number.isFinite(value)) return "-";
+          if (Math.abs(value) < 1e-9) return "0 ZEC";
+          return `${numberFormatter.format(value)} ZEC`;
+        }
+
+        function formatYield(value) {
+          if (!Number.isFinite(value)) return "-";
+          if (Math.abs(value) < 1e-9) return "0 ZEC";
+          return `${yieldFormatter.format(value)} ZEC`;
+        }
+
+        function formatAveragePickTime(expectedPicksPerDay) {
+          if (!(expectedPicksPerDay > 0)) return "–";
+          const minutes = (24 * 60) / expectedPicksPerDay;
+          if (minutes < 120) {
+            const rounded = Math.round(minutes * 10) / 10;
+            return `${rounded.toFixed(1)} min`;
+          }
+          if (minutes < 180) {
+            return `${Math.round(minutes)} min`;
+          }
+          const totalMinutes = Math.round(minutes);
+          let hours = Math.floor(totalMinutes / 60);
+          let mins = totalMinutes - hours * 60;
+          if (mins === 60) {
+            hours += 1;
+            mins = 0;
+          }
+          return `${hours}:${String(mins).padStart(2, "0")} h`;
+        }
+
+        function deriveValues() {
+          const scaleFactor = state.scaleMode === "per-day" ? blocksPerDay : 1;
+          const scaleSuffix = state.scaleMode === "per-day" ? "/ day" : "/ block";
+          const scaleLabel = state.scaleMode === "per-day" ? "per day" : "per block";
+
+          const devPerBlock = blockSubsidy * shareDev;
+          const minerPerBlock = blockSubsidy * shareMiners;
+          const stakerPerBlock = blockSubsidy * shareStakers;
+
+          const commissionFrac = fraction(state.commissionPct);
+          const finalizerSelectionProbabilityValue = clamp(
+            state.finalizerSelectionProbability,
+            0,
+            1,
+          );
+          const perFinalizerGross = stakerPerBlock * finalizerSelectionProbabilityValue;
+          const perFinalizerNet = perFinalizerGross * (1 - commissionFrac);
+          const exampleDelegatorPctValue = clamp(state.exampleDelegatorPct, 0, 100);
+          const exampleDelegatorFrac = exampleDelegatorPctValue / 100;
+          const exampleDelegatorPerBlock = perFinalizerNet * exampleDelegatorFrac;
+          const exampleDelegatorPerDay = exampleDelegatorPerBlock * blocksPerDay;
+          const exampleDelegatorPerYear = exampleDelegatorPerBlock * blocksPerYear;
+
+          const selectionProbability = finalizerSelectionProbabilityValue;
+          const expectedPicksPerDay = selectionProbability * blocksPerDay;
+          const selectionProbabilityDisplay = probabilityFormatter.format(
+            selectionProbability,
+          );
+          const selectionProbabilityPercentDisplay = `${percentFormatter.format(
+            selectionProbability * 100,
+          )}%`;
+          const expectedPicksPerDayDisplay =
+            Number.isFinite(expectedPicksPerDay) && expectedPicksPerDay >= 0
+              ? picksFormatter.format(expectedPicksPerDay)
+              : "–";
+          const avgPickTimeDisplay = formatAveragePickTime(expectedPicksPerDay);
+          const exampleCadenceDisplay =
+            Number.isFinite(expectedPicksPerDay) && expectedPicksPerDay >= 0
+              ? `${expectedPicksPerDayDisplay} picks/day (avg gap ${avgPickTimeDisplay})`
+              : "–";
+
+          const devPer = devPerBlock * scaleFactor;
+          const minerPer = minerPerBlock * scaleFactor;
+          const stakerPer = stakerPerBlock * scaleFactor;
+          const commissionPerBlock = stakerPerBlock * commissionFrac;
+          const commissionPer = commissionPerBlock * scaleFactor;
+          const delegatorNetPerBlock = stakerPerBlock * (1 - commissionFrac);
+          const delegatorNetPer = delegatorNetPerBlock * scaleFactor;
+          const thisFinalizerCommissionPerBlock = perFinalizerGross * commissionFrac;
+          const thisFinalizerCommissionPer = thisFinalizerCommissionPerBlock * scaleFactor;
+          const thisFinalizerDelegatorsPerBlock = perFinalizerGross * (1 - commissionFrac);
+          const thisFinalizerDelegatorsPer = thisFinalizerDelegatorsPerBlock * scaleFactor;
+          const exampleDelegatorPer = exampleDelegatorPerBlock * scaleFactor;
+          const thisFinalizerOtherDelegatorsPerBlock = Math.max(
+            0,
+            thisFinalizerDelegatorsPerBlock - exampleDelegatorPerBlock,
+          );
+          const thisFinalizerOtherDelegatorsPer =
+            thisFinalizerOtherDelegatorsPerBlock * scaleFactor;
+          const perFinalizerPer = perFinalizerGross * scaleFactor;
+          const otherFinalizersPerBlock = Math.max(0, stakerPerBlock - perFinalizerGross);
+          const otherFinalizersPer = otherFinalizersPerBlock * scaleFactor;
+          const otherDelegatorsPer = Math.max(0, delegatorNetPer - exampleDelegatorPer);
+
+          return {
+            scaleFactor,
+            scaleLabel,
+            scaleSuffix,
+            scaleWord: state.scaleMode === "per-day" ? "Day" : "Block",
+            devPer,
+            minerPer,
+            stakerPer,
+            commissionPer,
+            delegatorNetPer,
+            exampleDelegatorPer,
+            otherDelegatorsPer,
+            perFinalizerPer,
+            thisFinalizerCommissionPer,
+            thisFinalizerDelegatorsPer,
+            thisFinalizerOtherDelegatorsPer,
+            otherFinalizersPer,
+            exampleDelegatorPerBlock,
+            exampleDelegatorPerDay,
+            exampleDelegatorPerYear,
+            finalizerSelectionProbability: selectionProbability,
+            exampleDelegatorPct: exampleDelegatorPctValue,
+            selectionProbability,
+            selectionProbabilityDisplay,
+            selectionProbabilityPercentDisplay,
+            expectedPicksPerDay,
+            expectedPicksPerDayDisplay,
+            avgPickTimeDisplay,
+            exampleCadenceDisplay,
+            stakerPerBlock,
+            perFinalizerGross,
+            commissionFrac,
+          };
+        }
+
+        function updateUI() {
+          const derived = deriveValues();
+
+          fields["scale-word"].textContent = derived.scaleWord;
+          fields["dev-per"].textContent = formatZecNoScale(derived.devPer);
+          fields["miner-per"].textContent = formatZecNoScale(derived.minerPer);
+          fields["staker-per"].textContent = formatZecNoScale(derived.stakerPer);
+          fields["per-finalizer"].textContent = formatZec(derived.perFinalizerPer, derived.scaleSuffix);
+          fields["commission-per"].textContent = formatZec(derived.commissionPer, derived.scaleSuffix);
+          fields["delegator-net"].textContent = formatZec(derived.delegatorNetPer, derived.scaleSuffix);
+          fields["expected-picks"].textContent = derived.expectedPicksPerDayDisplay;
+          fields["avg-pick-time"].textContent = derived.avgPickTimeDisplay;
+          fields["example-share"].textContent = `${percentFormatter.format(derived.exampleDelegatorPct)}%`;
+          fields["example-payout"].textContent = formatZec(derived.exampleDelegatorPer, derived.scaleSuffix);
+          fields["example-cadence"].textContent = derived.exampleCadenceDisplay;
+          fields["other-delegators"].textContent = formatZec(derived.otherDelegatorsPer, derived.scaleSuffix);
+          fields["yield-per-block"].textContent = formatYield(derived.exampleDelegatorPerBlock);
+          fields["yield-per-day"].textContent = formatYield(derived.exampleDelegatorPerDay);
+          fields["yield-per-year"].textContent = formatYield(derived.exampleDelegatorPerYear);
+
+          renderSankey(derived);
+        }
+
+        function propagateStateChange(options = {}) {
+          if (options.syncInputs) {
+            syncInputsFromState();
+          }
+          updateUI();
+          syncURL();
+        }
+
+        function renderSankey(derived) {
+          const diagrams = [
+            {
+              wrapperId: "sankey-wrapper-issuance",
+              svgId: "sankey-issuance",
+              nodeColors: {
+                Issuance: palette.orange,
+                "Dev Fund": palette.grey3,
+                Miners: palette.grey4,
+                Finalizers: palette.orange,
+                "This Finalizer": palette.orange,
+                "Other Finalizers": palette.grey2,
+              },
+              nodeOrder: [
+                "Issuance",
+                "Dev Fund",
+                "Miners",
+                "Finalizers",
+                "Other Finalizers",
+                "This Finalizer",
+              ],
+              nodes: [
+                { name: "Issuance" },
+                { name: "Dev Fund" },
+                { name: "Miners" },
+                { name: "Finalizers" },
+                { name: "Other Finalizers" },
+                { name: "This Finalizer" },
+              ],
+              links: [
+                { source: "Issuance", target: "Dev Fund", value: derived.devPer, color: palette.grey3 },
+                { source: "Issuance", target: "Miners", value: derived.minerPer, color: palette.grey4 },
+                { source: "Issuance", target: "Finalizers", value: derived.stakerPer, color: palette.orange },
+                { source: "Finalizers", target: "Other Finalizers", value: derived.otherFinalizersPer, color: palette.grey2 },
+                { source: "Finalizers", target: "This Finalizer", value: derived.perFinalizerPer, color: palette.orange },
+              ],
+              nodeTooltip: (node, derived) => {
+                const base = `${node.name}\n${numberFormatter.format(node.value)} ZEC ${derived.scaleSuffix}`;
+                if (node.name !== "This Finalizer") {
+                  return base;
+                }
+                const selectionLines = [
+                  base,
+                  "",
+                  "Selection",
+                  `Selection probability: ${derived.selectionProbabilityDisplay} (~${derived.selectionProbabilityPercentDisplay})`,
+                  `Expected picks/day: ${derived.expectedPicksPerDayDisplay}`,
+                  `Avg time between picks: ${derived.avgPickTimeDisplay}`,
+                  "",
+                  "Rewards",
+                  `Expected gross per block (time-averaged): ${formatZec(derived.perFinalizerGross, "/ block")}`,
+                  `Gross when selected (per win): ${formatZec(derived.stakerPerBlock, "/ block")}`,
+                  `Commission skim (per win): ${formatZec(derived.stakerPerBlock * derived.commissionFrac, "/ block")}`,
+                  `Delegators pool (per win): ${formatZec(derived.stakerPerBlock * (1 - derived.commissionFrac), "/ block")}`,
+                  `Example delegator expected per block (time-averaged): ${formatZec(derived.exampleDelegatorPerBlock, "/ block")}`,
+                ];
+                return selectionLines.join("\n");
+              },
+            },
+            {
+              wrapperId: "sankey-wrapper-finalizer",
+              svgId: "sankey-finalizer",
+              nodeColors: {
+                "Finalizer": palette.orange,
+                "Commission": palette.grey3,
+                "Delegators": palette.orange,
+                "This Delegator": palette.orange,
+                "Other Delegators": palette.grey4,
+              },
+              nodeOrder: [
+                "Finalizer",
+                "Commission",
+                "Delegators",
+                "Other Delegators",
+                "This Delegator",
+              ],
+              nodes: [
+                { name: "Finalizer" },
+                { name: "Commission" },
+                { name: "Delegators" },
+                { name: "Other Delegators" },
+                { name: "This Delegator" },
+              ],
+              links: [
+                {
+                  source: "Finalizer",
+                  target: "Commission",
+                  value: derived.thisFinalizerCommissionPer,
+                  color: palette.grey3,
+                },
+                {
+                  source: "Finalizer",
+                  target: "Delegators",
+                  value: derived.thisFinalizerDelegatorsPer,
+                  color: palette.orange,
+                },
+                {
+                  source: "Delegators",
+                  target: "Other Delegators",
+                  value: derived.thisFinalizerOtherDelegatorsPer,
+                  color: palette.grey4,
+                },
+                {
+                  source: "Delegators",
+                  target: "This Delegator",
+                  value: derived.exampleDelegatorPer,
+                  color: palette.orange,
+                },
+              ],
+            },
+          ];
+
+          diagrams.forEach((diagram) => drawSankey(diagram, derived));
+        }
+
+        function drawSankey(diagram, derived) {
+          const wrapper = document.getElementById(diagram.wrapperId);
+          if (!wrapper) return;
+
+          const svg = d3.select(`#${diagram.svgId}`);
+          const width = wrapper.clientWidth;
+          const height = wrapper.clientHeight;
+
+          const margin = { top: 12, right: 12, bottom: 12, left: 12 };
+
+          svg.attr("viewBox", `0 0 ${width} ${height}`);
+          svg.attr("preserveAspectRatio", "xMidYMid meet");
+          svg.selectAll("*").remove();
+
+          const nodeOrderMap = new Map(
+            diagram.nodeOrder.map((name, index) => [name, index]),
+          );
+
+          const sankey = d3
+            .sankey()
+            .nodeId((d) => d.name)
+            .nodeWidth(22)
+            .nodePadding(28)
+            .nodeSort(
+              (a, b) =>
+                (nodeOrderMap.get(a.name) ?? Number.POSITIVE_INFINITY) -
+                (nodeOrderMap.get(b.name) ?? Number.POSITIVE_INFINITY),
+            )
+            .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]]);
+
+          const { nodes, links } = sankey({
+            nodes: diagram.nodes.map((d) => ({ ...d })),
+            links: diagram.links.map((d) => ({ ...d })),
+          });
+
+          const linkGroup = svg
+            .append("g")
+            .attr("class", "sankey-links")
+            .attr("fill", "none")
+            .attr("stroke-opacity", 0.7);
+          const sankeyLink = d3.sankeyLinkHorizontal();
+
+          linkGroup
+            .selectAll("path")
+            .data(links)
+            .join("path")
+            .attr("d", sankeyLink)
+            .attr("stroke", (d) => d.color || palette.grey3)
+            .attr("stroke-width", (d) => Math.max(1, d.width))
+            .append("title")
+            .text((d) => `${d.source.name} → ${d.target.name}\n${numberFormatter.format(d.value)} ZEC ${derived.scaleSuffix}`);
+
+          const nodeGroup = svg
+            .append("g")
+            .attr("class", "sankey-nodes")
+            .attr("stroke", palette.grey1);
+
+          const nodeEnter = nodeGroup.selectAll("g").data(nodes).join("g");
+
+          const defaultNodeTooltip = (node) =>
+            `${node.name}\n${numberFormatter.format(node.value)} ZEC ${derived.scaleSuffix}`;
+
+          nodeEnter
+            .append("rect")
+            .attr("x", (d) => d.x0)
+            .attr("y", (d) => d.y0)
+            .attr("height", (d) => Math.max(1, d.y1 - d.y0))
+            .attr("width", (d) => d.x1 - d.x0)
+            .attr("rx", 4)
+            .attr("fill-opacity", 0.92)
+            .attr("fill", (d) => diagram.nodeColors[d.name] || palette.grey2)
+            .append("title")
+            .text((d) =>
+              typeof diagram.nodeTooltip === "function"
+                ? diagram.nodeTooltip(d, derived)
+                : defaultNodeTooltip(d),
+            );
+
+          // Labels rely on the wrapper's text color; keep this group opacity at 1 so
+          // the stroke halo stays crisp while inheriting currentColor.
+          const labelGroup = svg.append("g").attr("class", "sankey-labels");
+
+          const labels = labelGroup
+            .selectAll("g")
+            .data(nodes, (d) => d.name)
+            .join((enter) => {
+              const group = enter.append("g").attr("class", "sankey-label-group");
+              group.append("rect").attr("class", "sankey-label-bg");
+              group.append("text").attr("class", "sankey-label");
+              return group;
+            });
+
+          labels.attr("transform", (d) => {
+            const labelX = d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6;
+            const labelY = (d.y0 + d.y1) / 2;
+            return `translate(${labelX}, ${labelY})`;
+          });
+
+          labels
+            .select("text")
+            .attr("text-anchor", (d) => (d.x0 < width / 2 ? "start" : "end"))
+            .attr("font-size", 12)
+            .attr("fill", "currentColor")
+            .attr("dominant-baseline", "middle")
+            .text((d) => `${d.name} (${numberFormatter.format(d.value)} ZEC)`);
+
+          const labelPaddingX = 8;
+          const labelPaddingY = 4;
+
+          labels.each(function (node) {
+            const labelSelection = d3.select(this);
+            const textNode = labelSelection.select("text").node();
+            if (!textNode) {
+              return;
+            }
+            const bbox = textNode.getBBox();
+            const anchor = node.x0 < width / 2 ? "start" : "end";
+            const backgroundX = anchor === "start" ? 0 : -bbox.width;
+            labelSelection
+              .select("rect")
+              .attr("x", backgroundX - labelPaddingX)
+              .attr("y", -bbox.height / 2 - labelPaddingY)
+              .attr("width", bbox.width + labelPaddingX * 2)
+              .attr("height", bbox.height + labelPaddingY * 2)
+              .attr("rx", 6)
+              .attr("ry", 6);
+          });
+        }
+
+        scaleSelect.addEventListener("change", (event) => {
+          state.scaleMode = event.target.value === "per-day" ? "per-day" : "per-block";
+          propagateStateChange();
+        });
+
+        attachNumberInputHandlers(finalizerWeightInput, {
+          min: 0,
+          max: 1,
+          stateKey: "finalizerSelectionProbability",
+        });
+
+        attachNumberInputHandlers(commissionInput, {
+          min: 0,
+          max: 100,
+          stateKey: "commissionPct",
+        });
+
+        attachNumberInputHandlers(delegatorInput, {
+          min: 0,
+          max: 100,
+          stateKey: "exampleDelegatorPct",
+        });
+
+        resetButton.addEventListener("click", () => {
+          Object.assign(state, defaults);
+          propagateStateChange({ syncInputs: true });
+        });
+
+        if (copyLinkButton) {
+          copyLinkButton.addEventListener("click", () => {
+            copyScenarioLink();
+          });
+        }
+
+        window.addEventListener("resize", () => {
+          updateUI();
+        });
+
+        applyStateFromQuery();
+        syncInputsFromState();
+        propagateStateChange();
+      })();
+    </script>
+  </body>
+</html>
