@@ -2,59 +2,65 @@
 
 ## Repository Overview
 - Interactive Crosslink economics simulator delivered as a single static HTML document (`index.html`).
-- Uses vanilla JavaScript, inline CSS, and [D3](https://d3js.org/) + `d3-sankey` loaded from CDN for the Sankey diagrams.
+- Uses vanilla JavaScript and inline CSS with no external runtime dependencies.
 - No package.json, build tooling, or framework runtime; everything must continue to work when served as plain static assets.
 
 ## File Layout
-- `index.html`: Entry point containing markup, styles, and the full application script, including chart rendering and UI logic.
+- `index.html`: Entry point containing markup, styles, and the full application script for state, derived metrics, and UI logic.
 - `.github/workflows/deploy.yml`: GitHub Pages deployment pipeline that uploads `index.html` on pushes to `main`.
 - `AGENTS.md`: This guidance file. Update this first when repo assumptions change.
 
 ## Tooling & Runtime Expectations
 - Development and preview: serve `index.html` over HTTP (e.g. `python -m http.server 5173`) so history/clipboard APIs work consistently. Opening via `file://` mostly works but may block clipboard access in some browsers.
-- External dependencies are fetched at runtime from jsDelivr:
-  - `https://cdn.jsdelivr.net/npm/d3@7`
-  - `https://cdn.jsdelivr.net/npm/d3-sankey@0.12`
-  Keep the app lightweight by avoiding additional libraries unless absolutely necessary.
+- External dependencies are not required; keep the app lightweight by avoiding additional libraries unless absolutely necessary.
 - There is no automated lint/test pipeline. Manual testing in modern Chromium and Firefox is expected before shipping changes.
 
 ## Domain Model & Parameters
 - Fixed economic inputs (matching code defaults):
-  - `blockSubsidy = 1.5625` ZEC per block.
-  - `blocksPerDay = 1152` (≈75s block time).
+  - `roundReward = 1.5625` ZEC per round.
+  - `roundsPerDay = 1152` (≈75s round cadence).
   - `shareDev = 0.20`, `shareMiners = 0.40`, `shareStakers = 0.40`.
 - Adjustable controls (state keys → UI inputs):
-  - `scaleMode`: `"per-block" | "per-day"` (select).
-  - `finalizerSelectionProbability`: numeric input (0–1).
+  - `finalizerWeight`: numeric input (0–1).
+  - `pctShieldedStaked`: numeric input (0–100).
   - `commissionPct`: numeric input (0–100).
-  - `exampleDelegatorPct`: numeric input (0–100).
-- Defaults (`defaults` object in `index.html`): per-block scale, selection probability 0.01 (1%), 10% commission, 2% delegator share.
-- Output metrics derive from these values and feed both the number cards and Sankey diagrams.
+  - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
+- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, selection probability 0.01 (1%), 10% commission, 60 ZEC delegation (≈2% of the default finalizer stake), 10% of shielded pool staked.
+- Derived relationships shared by the summary, Estimates, and metrics panels:
+  - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
+  - `finalizerStakeZec = totalStakedZec × finalizerWeight`
+  - `userShareOfFinalizer = finalizerStakeZec > 0 ? clamp(delegatorZec / finalizerStakeZec, 0, 1) : 0`
+  - `netFactor = 1 - commissionPct / 100`
+  - `rewardPerPick = roundReward × shareStakers`
+  - `expectedPicksPerDay = finalizerWeight × roundsPerDay`
+  - `perPickZec = rewardPerPick × userShareOfFinalizer × netFactor`
+  - `perDayZec = expectedPicksPerDay × rewardPerPick × userShareOfFinalizer × netFactor`
+  - `perYearZec = perDayZec × 365`
+  - `annualizedPct = delegatorZec > 0 ? (perDayZec × 365 / delegatorZec) × 100 : 0`
 
 ## Application Architecture
 - Simple state container (`state`) backed by helper functions:
-  - `propagateStateChange()` recalculates derived values, updates DOM text fields, re-renders Sankey charts, and syncs the URL query string.
-  - `deriveValues()` computes all intermediate metrics used by the UI.
-  - `renderSankey()` and `drawSankey()` construct diagrams using D3's Sankey utilities with consistent color palette defined near the top of the script.
+  - `derive(state)` centralizes domain math, including shielded staking assumptions.
+  - `computeEstimates()` hosts the reward math that powers the Estimates panel, summary copy, and supporting metrics.
+  - `propagateStateChange()` handles recalculation, DOM updates, optional input syncing, and URL serialization.
 - Event handling:
   - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
-  - `scale-mode` select toggles scale and refreshes outputs.
-  - `reset-button` restores `defaults`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
-  - `window.resize` triggers a redraw to keep SVG dimensions aligned with the container.
+  - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
+  - When the delegator amount meets or exceeds the finalizer stake, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
 - Formatting helpers rely on `Intl.NumberFormat` instances; keep locale-agnostic formatting unless a new requirement demands otherwise.
 
 ## URL Parameters & Deep Linking
 - Query params share state for bookmarking/sharing:
-  - `p`: selection probability (`finalizerSelectionProbability`, 0–1).
+  - `p`: selection probability (`finalizerWeight`, 0–1).
+  - `ps`: percent of shielded pool staked (`pctShieldedStaked`, 0–100).
   - `c`: commission percent (`commissionPct`, 0–100).
-  - `d`: example delegator percent (`exampleDelegatorPct`, 0–100).
-  - `scale`: `block` → per-block, `day` → per-day.
-- `applyStateFromQuery()` hydrates state on load; `syncURL()` writes back when state changes. When modifying state keys, update both functions and keep parameter names stable to preserve compatibility.
+  - `dz`: delegator amount in ZEC (`delegatorZec`, ≥0).
+  - `d`: delegator share percent (legacy; still emitted for compatibility, but ignored when `dz` is present).
+- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `finalizerWeight` and `pctShieldedStaked`. `syncURL()` writes back when state changes and includes both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
 
 ## Styling & Accessibility Notes
-- Dark-first palette defined in CSS `:root`; automatically adjusts label halos for light mode via media queries.
+- Dark-first palette defined in CSS `:root`.
 - Layout uses responsive CSS grid. Maintain existing breakpoints unless redesigning the layout.
-- Sankey labels render with background rectangles for contrast; when adding nodes, ensure labels remain readable.
 - Keep controls keyboard-accessible and consider ARIA attributes already present (e.g., `aria-describedby` for tooltips). Update any related text if new inputs are introduced.
 
 ## Deployment & Continuous Delivery
@@ -75,7 +81,7 @@
 
 ## Testing & Verification Checklist
 - Manually test form inputs at boundary values (0, 1, 100) to confirm clamping logic.
-- Validate both scale modes and ensure Sankey diagrams redraw correctly after window resizes.
+- Confirm the summary copy and Estimates panel stay in sync when any input changes.
 - Verify URL sharing:
   1. Adjust parameters.
   2. Click "Copy link to scenario" (ensure clipboard success message appears).
@@ -84,5 +90,4 @@
 
 ## Known Limitations / Future Work
 - No automated tests; behavior regression checks rely on manual QA.
-- Visualization depends on external CDNs; offline use requires bundling assets locally.
 - Economic model excludes transaction fees, slashing, privacy batching cadence, and other advanced tokenomics (see TODOs in project description). Add new sections here as features are implemented.
