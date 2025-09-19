@@ -31,17 +31,17 @@
       main {
         max-width: 1100px;
         margin: 0 auto;
-        padding: 2.5rem 1.5rem 3rem;
+        padding: 1.85rem 1.25rem 2.4rem;
         display: flex;
         flex-direction: column;
-        gap: 1.75rem;
+        gap: 1.4rem;
       }
       header h1 {
-        font-size: clamp(2rem, 5vw, 2.6rem);
+        font-size: clamp(1.8rem, 4vw, 2.2rem);
         margin: 0;
       }
       header p {
-        margin: 0.5rem 0 0;
+        margin: 0.35rem 0 0;
         max-width: 80ch;
         color: var(--muted);
         line-height: 1.5;
@@ -56,23 +56,23 @@
       }
       .panel {
         background: var(--surface);
-        border-radius: 18px;
-        padding: 1.75rem;
+        border-radius: 16px;
+        padding: 1.45rem;
         box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
         border: 1px solid var(--border);
       }
       .panel-intro {
         display: grid;
-        gap: 1.75rem;
+        gap: 1.35rem;
       }
       .intro-copy {
         color: var(--muted);
-        font-size: 1.5rem;
-        line-height: 1.6;
+        font-size: 1.35rem;
+        line-height: 1.55;
       }
       form.controls {
         display: grid;
-        gap: 1.5rem;
+        gap: 1.25rem;
       }
       fieldset {
         margin: 0;
@@ -179,7 +179,36 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.75rem;
-        margin-top: 0.5rem;
+        margin-top: 0.35rem;
+      }
+      .chart-panel {
+        display: grid;
+        gap: 1rem;
+      }
+      .chart-caption {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.45;
+      }
+      .chart-container {
+        position: relative;
+        width: 100%;
+        height: 220px;
+      }
+      .chart-container canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+      .chart-legend strong {
+        color: var(--text);
       }
       .visually-hidden {
         position: absolute !important;
@@ -213,11 +242,9 @@
             and <span id="sumPctStaked" class="accent"></span> of that is staked (<span id="sumStakedZec" class="summary-strong"></span> ZEC).
           </p>
           <p>
-            You are delegating <span id="sumDelegationZec" class="accent"></span> zec
-            to a finalizer who charges <span id="commission" class="accent"></span>% commission.
-          </p>
-          <p>
-            Your yield will be roughly <span id="sumDailyYieldZec" class="summary-strong"></span> ZEC per day
+            If you delegate <span id="sumDelegationZec" class="accent"></span> zec
+            to a finalizer who charges <span id="commission" class="accent"></span> commission,
+            your yield will be roughly <span id="sumDailyYieldZec" class="summary-strong"></span> ZEC per day
             or about <span id="sumAnnualizedPct" class="accent summary-strong"></span> annualized.
           </p>
         </div>
@@ -239,6 +266,11 @@
                 <input id="delegator" name="delegator" type="number" min="0" step="0.01" inputmode="decimal">
                 <small id="delegatorCoverageNote" class="inline-note" hidden>You now match the entire staked pool.</small>
               </div>
+              <div class="field">
+                <label for="poolGrowthInput">Expected pool growth (monthly)</label>
+                <input id="poolGrowthInput" name="pool-growth" type="range" min="0" max="30" step="0.5">
+                <small>Assumes the staked pool expands <span id="poolGrowthValue" class="accent"></span> each month.</small>
+              </div>
               <div class="button-row">
                 <button type="button" id="copy-link-button">Copy link to scenario</button>
                 <button type="button" id="reset-button">Reset to defaults</button>
@@ -248,6 +280,21 @@
         </section>
       </div>
 
+      <section class="panel chart-panel" aria-labelledby="yieldProjectionTitle">
+        <h2 id="yieldProjectionTitle">Dynamic Yield Projection</h2>
+        <p class="chart-caption">
+          Visualize how auto-compounding and pool growth dilution change your net annualized yield over the next year.
+        </p>
+        <div class="chart-container">
+          <canvas id="yieldChart" role="img" aria-label="Projected annualized yield over the next 12 months"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span><strong id="projectionStartYield"></strong> at month 1</span>
+          <span><strong id="projectionEndYield"></strong> by month 12</span>
+          <span>Delegation grows to <strong id="projectionEndBalance"></strong> ZEC</span>
+        </div>
+      </section>
+
     </main>
 
     <script>
@@ -256,12 +303,14 @@
         const ROUNDS_PER_DAY = 1152;
         const DAYS_PER_YEAR = 365;
         const SHARE_STAKERS = 0.40;
+        const AVERAGE_DAYS_PER_MONTH = DAYS_PER_YEAR / 12;
 
         const DEFAULTS = {
           TOTAL_SHIELDED_ZEC: 3_000_000,
           commissionPct: 10,
           delegatorZec: 60,
           pctShieldedStaked: 50,
+          poolGrowthPct: 4,
         };
 
         const state = { ...DEFAULTS };
@@ -280,8 +329,12 @@
         const pctStakedInput = document.getElementById("inputPctStaked");
         const commissionInput = document.getElementById("commissionInput");
         const delegatorInput = document.getElementById("delegator");
+        const poolGrowthInput = document.getElementById("poolGrowthInput");
+        const poolGrowthValue = document.getElementById("poolGrowthValue");
         const resetButton = document.getElementById("reset-button");
         const copyLinkButton = document.getElementById("copy-link-button");
+        const yieldChartCanvas = document.getElementById("yieldChart");
+        const yieldChartContext = yieldChartCanvas ? yieldChartCanvas.getContext("2d") : null;
 
         const summaryElements = {
           totalShielded: document.getElementById("sumTotalShielded"),
@@ -294,6 +347,12 @@
         };
         const coverageNote = document.getElementById("delegatorCoverageNote");
         const pctStakedWarningNote = document.getElementById("pctStakedWarning");
+        const projectionSummaryElements = {
+          startYield: document.getElementById("projectionStartYield"),
+          endYield: document.getElementById("projectionEndYield"),
+          endBalance: document.getElementById("projectionEndBalance"),
+        };
+        let lastProjection = { points: [], endingBalance: 0 };
 
         function clamp(value, min, max) {
           if (!Number.isFinite(value)) return min;
@@ -349,22 +408,214 @@
             stakedZec,
             delegatorZec,
             commissionPct,
+            netFactor,
             netDailyZec,
             annualizedPct,
             coversStakedPool,
           };
         }
 
+        function computeYieldProjection(derived) {
+          const months = 12;
+          const growthRate = clamp(state.poolGrowthPct, 0, 30) / 100;
+          const results = [];
+          let delegatorStake = derived.delegatorZec;
+          let otherStake = Math.max(0, derived.stakedZec - delegatorStake);
+          const netFactor = derived.netFactor;
+          const rewardPerDay = ROUND_REWARD_ZEC * SHARE_STAKERS;
+
+          for (let month = 1; month <= months; month += 1) {
+            const totalStaked = delegatorStake + otherStake;
+            const share = totalStaked > 0 ? delegatorStake / totalStaked : 0;
+            const dailyNet = rewardPerDay * share * netFactor;
+            const annualizedPct = delegatorStake > 0
+              ? ((dailyNet * DAYS_PER_YEAR) / delegatorStake) * 100
+              : 0;
+            const monthlyEarned = dailyNet * AVERAGE_DAYS_PER_MONTH;
+            results.push({
+              month,
+              annualizedPct,
+              balance: delegatorStake,
+              monthlyEarned,
+            });
+            delegatorStake += monthlyEarned;
+            otherStake *= 1 + growthRate;
+          }
+
+          return {
+            points: results,
+            endingBalance: delegatorStake,
+          };
+        }
+
+        function updateProjectionSummary(projection) {
+          if (!projectionSummaryElements.startYield) {
+            return;
+          }
+          const points = projection.points;
+          if (!points.length) {
+            projectionSummaryElements.startYield.textContent = "–";
+            projectionSummaryElements.endYield.textContent = "–";
+            projectionSummaryElements.endBalance.textContent = fmtZec(0);
+            return;
+          }
+          const first = points[0];
+          const last = points[points.length - 1];
+          projectionSummaryElements.startYield.textContent = fmtPct(first.annualizedPct);
+          projectionSummaryElements.endYield.textContent = fmtPct(last.annualizedPct);
+          projectionSummaryElements.endBalance.textContent = fmtZec(projection.endingBalance);
+        }
+
+        function renderYieldChart(projection) {
+          lastProjection = projection;
+          if (!yieldChartCanvas || !yieldChartContext) {
+            return;
+          }
+
+          const points = projection.points;
+          const rect = yieldChartCanvas.getBoundingClientRect();
+          const logicalWidth = rect.width || yieldChartCanvas.clientWidth || 600;
+          const logicalHeight = rect.height || yieldChartCanvas.clientHeight || 220;
+          const dpr = window.devicePixelRatio || 1;
+          const targetWidth = logicalWidth * dpr;
+          const targetHeight = logicalHeight * dpr;
+          if (yieldChartCanvas.width !== targetWidth || yieldChartCanvas.height !== targetHeight) {
+            yieldChartCanvas.width = targetWidth;
+            yieldChartCanvas.height = targetHeight;
+          }
+
+          const ctx = yieldChartContext;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, yieldChartCanvas.width, yieldChartCanvas.height);
+          ctx.scale(dpr, dpr);
+
+          const width = logicalWidth;
+          const height = logicalHeight;
+
+          if (!points.length) {
+            return;
+          }
+
+          const padding = { top: 20, right: 18, bottom: 32, left: 56 };
+          const chartWidth = Math.max(1, width - padding.left - padding.right);
+          const chartHeight = Math.max(1, height - padding.top - padding.bottom);
+          const yValues = points.map((point) => point.annualizedPct);
+          const minY = Math.min(...yValues);
+          const maxY = Math.max(...yValues);
+          const yPad = Math.max(0.2, (maxY - minY) * 0.0375);
+          const yMin = Math.max(0, minY - yPad);
+          const yMax = maxY + yPad;
+          const yRange = yMax - yMin || 1;
+
+          const getX = (index) => {
+            if (points.length === 1) {
+              return padding.left + chartWidth / 2;
+            }
+            const ratio = index / (points.length - 1);
+            return padding.left + ratio * chartWidth;
+          };
+
+          const getY = (value) => {
+            const clamped = Math.min(Math.max(value, yMin), yMax);
+            const ratio = (clamped - yMin) / yRange;
+            return padding.top + chartHeight * (1 - ratio);
+          };
+
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.2)";
+          ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
+          ctx.font = "12px 'Inter', system-ui, sans-serif";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          const gridLines = 4;
+          for (let i = 0; i <= gridLines; i += 1) {
+            const ratio = i / gridLines;
+            const value = yMin + (yRange * (gridLines - i)) / gridLines;
+            const y = padding.top + chartHeight * (i / gridLines);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+            ctx.fillText(fmtPct(Math.max(0, value)), padding.left - 10, y);
+          }
+
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          const axisY = height - padding.bottom;
+          ctx.beginPath();
+          ctx.moveTo(padding.left, axisY);
+          ctx.lineTo(width - padding.right, axisY);
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+          ctx.stroke();
+          ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
+          const labelMonths = [1, 3, 6, 9, 12];
+          labelMonths.forEach((month) => {
+            const index = points.findIndex((point) => point.month === month);
+            if (index === -1) return;
+            const x = getX(index);
+            ctx.fillText(`M${month}`, x, axisY + 8);
+          });
+
+          const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+          gradient.addColorStop(0, "rgba(245, 158, 11, 0.3)");
+          gradient.addColorStop(1, "rgba(245, 158, 11, 0.05)");
+
+          ctx.beginPath();
+          points.forEach((point, index) => {
+            const x = getX(index);
+            const y = getY(point.annualizedPct);
+            if (index === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.lineTo(getX(points.length - 1), height - padding.bottom);
+          ctx.lineTo(getX(0), height - padding.bottom);
+          ctx.closePath();
+          ctx.fillStyle = gradient;
+          ctx.fill();
+
+          ctx.beginPath();
+          points.forEach((point, index) => {
+            const x = getX(index);
+            const y = getY(point.annualizedPct);
+            if (index === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "#f59e0b";
+          ctx.lineJoin = "round";
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          ctx.fillStyle = "#f59e0b";
+          points.forEach((point, index) => {
+            const x = getX(index);
+            const y = getY(point.annualizedPct);
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+
         function syncInputsFromState() {
           pctStakedInput.value = state.pctShieldedStaked;
           commissionInput.value = state.commissionPct;
           delegatorInput.value = state.delegatorZec;
+          if (poolGrowthInput) {
+            poolGrowthInput.value = state.poolGrowthPct;
+          }
         }
 
         function syncURL() {
           const params = new URLSearchParams();
           params.set("ps", state.pctShieldedStaked.toString());
           params.set("c", state.commissionPct.toString());
+          params.set("pg", state.poolGrowthPct.toString());
           const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
           const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
           const delegatorZec = Math.max(
@@ -491,6 +742,12 @@
           if (coverageNote) {
             coverageNote.hidden = !derived.coversStakedPool;
           }
+          if (poolGrowthValue) {
+            poolGrowthValue.textContent = fmtPct(state.poolGrowthPct);
+          }
+          const projection = computeYieldProjection(derived);
+          updateProjectionSummary(projection);
+          renderYieldChart(projection);
 
         }
 
@@ -530,6 +787,13 @@
             }
           }
 
+          if (params.has("pg")) {
+            const parsed = Number.parseFloat(params.get("pg"));
+            if (Number.isFinite(parsed)) {
+              state.poolGrowthPct = clamp(parsed, 0, 30);
+            }
+          }
+
           if (params.has("dz")) {
             const parsed = Number.parseFloat(params.get("dz"));
             if (Number.isFinite(parsed)) {
@@ -558,6 +822,14 @@
           stateKey: "commissionPct",
         });
 
+        if (poolGrowthInput) {
+          attachNumberInputHandlers(poolGrowthInput, {
+            min: 0,
+            max: 30,
+            stateKey: "poolGrowthPct",
+          });
+        }
+
         attachNumberInputHandlers(delegatorInput, {
           min: 0,
           max: Number.POSITIVE_INFINITY,
@@ -575,6 +847,10 @@
             copyScenarioLink();
           });
         }
+
+        window.addEventListener("resize", () => {
+          renderYieldChart(lastProjection);
+        });
 
         applyStateFromQuery();
         propagateStateChange({ syncInputs: true, skipURL: true });

@@ -4,7 +4,7 @@
 - Interactive Crosslink economics simulator delivered as a single static HTML document (`public/index.html`).
 - Uses vanilla JavaScript and inline CSS with no external runtime dependencies.
 - No package.json, build tooling, or framework runtime; everything must continue to work when served as plain static assets.
-- UI currently includes the configuration form and textual summary only (Estimates and detailed metrics panels were removed).
+- UI currently includes the configuration form, textual summary, and a dynamic projection chart (Estimates and detailed metrics panels were removed).
 
 ## File Layout
 - `public/index.html`: Entry point containing markup, styles, and the full application script for state, derived metrics, and UI logic.
@@ -25,7 +25,8 @@
   - `pctShieldedStaked`: numeric input (0–100).
   - `commissionPct`: numeric input (0–100).
   - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
-- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 50% of the shielded pool staked.
+  - `poolGrowthPct`: range slider (0–30) representing expected monthly growth of the aggregate staked pool (drives yield dilution in the projection chart).
+- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 50% of the shielded pool staked, 4% monthly pool growth assumption.
 - Derived relationships powering the summary copy:
   - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
   - `delegatorShare = totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0`
@@ -35,11 +36,13 @@
   - `perDayZec = rewardPerDay × delegatorShare × netFactor`
   - `perYearZec = perDayZec × 365`
   - `annualizedPct = delegatorZec > 0 ? (perYearZec / delegatorZec) × 100 : 0`
+  - Monthly projection loop: at each step, net rewards auto-compound into the delegator balance while the rest of the staked pool scales by `(1 + poolGrowthPct / 100)` to derive the next month's annualized yield for the chart.
 
 ## Application Architecture
 - Simple state container (`state`) backed by helper functions:
   - `derive(state)` centralizes domain math, including shielded staking assumptions and net reward projections.
   - `propagateStateChange()` handles recalculation, DOM updates, optional input syncing, and URL serialization.
+- Projection helpers (`computeYieldProjection`, `updateProjectionSummary`, `renderYieldChart`) build the 12-month auto-compounded yield series and draw the canvas-based line chart.
 - Event handling:
   - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
@@ -50,14 +53,16 @@
 - Query params share state for bookmarking/sharing:
   - `ps`: percent of shielded pool staked (`pctShieldedStaked`, 0–100).
   - `c`: commission percent (`commissionPct`, 0–100).
+  - `pg`: expected monthly pool growth (`poolGrowthPct`, 0–30).
   - `dz`: delegator amount in ZEC (`delegatorZec`, ≥0).
   - `d`: delegator share percent (legacy; still emitted for compatibility, but ignored when `dz` is present).
-- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `pctShieldedStaked`. `syncURL()` writes back when state changes and includes both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
+- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `pctShieldedStaked`. `syncURL()` writes back when state changes and includes `pg` plus both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
 
 ## Styling & Accessibility Notes
 - Dark-first palette defined in CSS `:root`.
 - Layout uses responsive CSS grid. Maintain existing breakpoints unless redesigning the layout.
 - Keep controls keyboard-accessible and consider ARIA attributes already present (e.g., `aria-describedby` for tooltips). Update any related text if new inputs are introduced.
+- Projection chart is rendered into a responsive `<canvas>` inside `.chart-container`; resize logic relies on CSS height (280px) and device-pixel scaling in `renderYieldChart`.
 
 ## Deployment & Continuous Delivery
 - GitHub workflow `.github/workflows/deploy.yml`:
@@ -78,6 +83,7 @@
 ## Testing & Verification Checklist
 - Manually test form inputs at boundary values (0, 1, 100) to confirm clamping logic.
 - Confirm the summary copy updates when any input changes.
+- Sweep the pool growth slider and confirm the projection chart and legend respond; resize the window to ensure the canvas redraw stays crisp.
 - Verify URL sharing:
   1. Adjust parameters.
   2. Click "Copy link to scenario" (ensure clipboard success message appears).
