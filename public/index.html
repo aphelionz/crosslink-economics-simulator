@@ -567,14 +567,16 @@
           }
         });
 
-        delegatorInput.addEventListener("change", () => {
-          const parsed = Number.parseFloat(delegatorInput.value);
-          const changed = updateState("delegatorZec", parsed);
-          delegatorInput.value = `${state.delegatorZec}`;
-          if (changed) {
-            propagateStateChange();
-          }
-        });
+        if (delegatorInput) {
+          delegatorInput.addEventListener("change", () => {
+            const parsed = Number.parseFloat(delegatorInput.value);
+            const changed = updateState("delegatorZec", parsed);
+            delegatorInput.value = `${state.delegatorZec}`;
+            if (changed) {
+              propagateStateChange();
+            }
+          });
+        }
 
         resetButton.addEventListener("click", () => {
           Object.assign(state, DEFAULTS);
