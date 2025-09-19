@@ -27,7 +27,8 @@
   - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
 - Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 50% of the shielded pool staked.
 - Derived relationships powering the summary copy:
-  - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
+  - `baselineStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
+  - `totalStakedZec = baselineStakedZec + delegatorZec`
   - `delegatorShare = totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0`
   - `netFactor = 1 - commissionPct / 100`
   - `rewardPerRound = roundReward × shareStakers`
@@ -43,7 +44,7 @@
 - Event handling:
   - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
-  - When the delegator amount meets or exceeds the staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
+  - When the delegator amount meets or exceeds the baseline staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
 - Formatting helpers rely on `Intl.NumberFormat` instances; keep locale-agnostic formatting unless a new requirement demands otherwise.
 
 ## URL Parameters & Deep Linking

@@ -210,15 +210,11 @@
         <div class="intro-copy">
           <p>
             Assume there is <span id="sumTotalShielded" class="summary-strong"></span> ZEC in the Orchard Pool,
-            and <span id="sumPctStaked" class="accent"></span> of that is staked (<span id="sumStakedZec" class="summary-strong"></span> ZEC).
-          </p>
-          <p>
-            You are delegating <span id="sumDelegationZec" class="accent"></span> zec
-            to a finalizer who charges <span id="commission" class="accent"></span>% commission.
-          </p>
-          <p>
-            Your yield will be roughly <span id="sumDailyYieldZec" class="summary-strong"></span> ZEC per day
-            or about <span id="sumAnnualizedPct" class="accent summary-strong"></span> annualized.
+            and <span id="sumPctStaked" class="accent"></span> of that is staked (~<span id="sumStakedZec" class="summary-strong"></span> ZEC before your delegation).
+            <div style="display: none">Including your delegation, total staked comes to <span id="sumTotalStakedZec" class="summary-strong"></span> ZEC.</div>
+            If you contribute <span id="sumDelegationZec" class="accent"></span> ZEC
+            with a <span id="commission" class="accent"></span>% commission, you will earn <span id="sumDailyYieldZec" class="summary-strong"></span> ZEC per day
+            or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.
           </p>
         </div>
         <section class="panel">
@@ -287,6 +283,7 @@
           totalShielded: document.getElementById("sumTotalShielded"),
           pctStaked: document.getElementById("sumPctStaked"),
           stakedZec: document.getElementById("sumStakedZec"),
+          totalStakedZec: document.getElementById("sumTotalStakedZec"),
           delegationZec: document.getElementById("sumDelegationZec"),
           commission: document.getElementById("commission"),
           dailyYieldZec: document.getElementById("sumDailyYieldZec"),
@@ -322,31 +319,34 @@
         function fmtPct(value) {
           if (!Number.isFinite(value)) return "–";
           const rounded = Math.round(value * 100) / 100;
-          return `${pctFormatter.format(rounded)}%`;
+          return pctFormatter.format(rounded);
         }
 
         function derive(currentState) {
           const pctShieldedStaked = clamp(currentState.pctShieldedStaked, 0, 100);
           const totalShieldedZec = currentState.TOTAL_SHIELDED_ZEC;
-          const stakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
+          const baselineStakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
           const rawDelegator = Number.isFinite(currentState.delegatorZec)
             ? currentState.delegatorZec
             : 0;
           const delegatorZec = Math.max(0, rawDelegator);
+          const totalStakedZec = baselineStakedZec + delegatorZec;
           const commissionPct = clamp(currentState.commissionPct, 0, 100);
           const netFactor = 1 - commissionPct / 100;
           const rewardPerRound = ROUND_REWARD_ZEC * SHARE_STAKERS;
           const rewardPerDay = rewardPerRound * ROUNDS_PER_DAY;
-          const delegatorShare = stakedZec > 0 ? clamp(delegatorZec / stakedZec, 0, 1) : 0;
+          const delegatorShare =
+            totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0;
           const netDailyZec = rewardPerDay * delegatorShare * netFactor;
           const netAnnualZec = netDailyZec * DAYS_PER_YEAR;
           const annualizedPct = delegatorZec > 0 ? (netAnnualZec / delegatorZec) * 100 : 0;
-          const coversStakedPool = stakedZec > 0 && delegatorZec >= stakedZec;
+          const coversStakedPool = baselineStakedZec > 0 && delegatorZec >= baselineStakedZec;
 
           return {
             totalShieldedZec,
             pctShieldedStaked,
-            stakedZec,
+            stakedZec: baselineStakedZec,
+            totalStakedZec,
             delegatorZec,
             commissionPct,
             netDailyZec,
@@ -483,6 +483,7 @@
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
           summaryElements.stakedZec.textContent = fmtZec(derived.stakedZec);
+          summaryElements.totalStakedZec.textContent = fmtZec(derived.totalStakedZec);
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
           summaryElements.commission.textContent = fmtPct(derived.commissionPct);
           summaryElements.dailyYieldZec.textContent = fmtZec(derived.netDailyZec);
