@@ -209,13 +209,21 @@
       <div class="panel-intro">
         <div class="intro-copy">
           <p>
-            Assume there is <span id="sumTotalShielded" class="summary-strong"></span> ZEC in the Orchard Pool,
-            and <span id="sumPctStaked" class="accent"></span> of that is staked (~<span id="sumStakedZec" class="summary-strong"></span> ZEC before your delegation).
-            <div style="display: none">Including your delegation, total staked comes to <span id="sumTotalStakedZec" class="summary-strong"></span> ZEC.</div>
-            If you contribute <span id="sumDelegationZec" class="accent"></span> ZEC
-            with a <span id="commission" class="accent"></span>% commission, you will earn <span id="sumDailyYieldZec" class="summary-strong"></span> ZEC per day
-            or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.
+            If there are <span id="sumTotalShielded" class="accent summary-strong" title="1,123,000 ZEC"></span> ZEC in the Orchard Pool,
+            and <abbr id="sumPctStaked" class="accent" title="1,234,234 ZEC"></abbr>% of that is staked,
+            you can contribute <span id="sumDelegationZec" class="accent"></span> ZEC
+            and earn roughly:
+            <ul>
+              <li><span id="sumDailyYieldZec" class="accent summary-strong"></span> ZEC per day</li>
+              <li><span id="sumAnnualYieldZec" class="accent summary-strong"></span> ZEC per year</li>
+              <li>or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.</li>
+            </ul>
           </p>
+        </div>
+        <div style="display: none">
+          Including your delegation, total staked comes to <span id="sumTotalStakedZec" class="summary-strong"></span> ZEC.
+          (~<span id="sumStakedZec" class="summary-strong"></span> ZEC before your delegation)
+          <span id="commission" class="accent"></span>%
         </div>
         <section class="panel">
           <h2>Configure Scenario</h2>
@@ -232,7 +240,15 @@
               </div>
               <div class="field">
                 <label for="delegator">Your Delegation (ZEC)</label>
-                <input id="delegator" name="delegator" type="number" min="0" step="0.01" inputmode="decimal">
+                <select id="delegator" name="delegator">
+                  <option value="0.1">0.1 ZEC</option>
+                  <option value="1">1 ZEC</option>
+                  <option value="10">10 ZEC</option>
+                  <option value="100">100 ZEC</option>
+                  <option value="1000">1,000 ZEC</option>
+                  <option value="10000">10,000 ZEC</option>
+                  <option value="100000">100,000 ZEC</option>
+                </select>
                 <small id="delegatorCoverageNote" class="inline-note" hidden>You now match the entire staked pool.</small>
               </div>
               <div class="button-row">
@@ -252,11 +268,12 @@
         const ROUNDS_PER_DAY = 1152;
         const DAYS_PER_YEAR = 365;
         const SHARE_STAKERS = 0.40;
+        const DELEGATION_LEVELS = [0.1, 1, 10, 100, 1_000, 10_000, 100_000];
 
         const DEFAULTS = {
           TOTAL_SHIELDED_ZEC: 3_000_000,
           commissionPct: 10,
-          delegatorZec: 60,
+          delegatorZec: DELEGATION_LEVELS[2],
           pctShieldedStaked: 50,
         };
 
@@ -287,6 +304,7 @@
           delegationZec: document.getElementById("sumDelegationZec"),
           commission: document.getElementById("commission"),
           dailyYieldZec: document.getElementById("sumDailyYieldZec"),
+          annualYieldZec: document.getElementById("sumAnnualYieldZec"),
           annualizedPct: document.getElementById("sumAnnualizedPct"),
         };
         const coverageNote = document.getElementById("delegatorCoverageNote");
@@ -322,6 +340,23 @@
           return pctFormatter.format(rounded);
         }
 
+        function snapDelegationValue(value) {
+          if (!Number.isFinite(value)) {
+            return DELEGATION_LEVELS[0];
+          }
+          let closest = DELEGATION_LEVELS[0];
+          let smallestDelta = Math.abs(value - closest);
+          for (let index = 1; index < DELEGATION_LEVELS.length; index += 1) {
+            const candidate = DELEGATION_LEVELS[index];
+            const delta = Math.abs(value - candidate);
+            if (delta < smallestDelta) {
+              closest = candidate;
+              smallestDelta = delta;
+            }
+          }
+          return closest;
+        }
+
         function derive(currentState) {
           const pctShieldedStaked = clamp(currentState.pctShieldedStaked, 0, 100);
           const totalShieldedZec = currentState.TOTAL_SHIELDED_ZEC;
@@ -350,6 +385,7 @@
             delegatorZec,
             commissionPct,
             netDailyZec,
+            netAnnualZec,
             annualizedPct,
             coversStakedPool,
           };
@@ -358,7 +394,11 @@
         function syncInputsFromState() {
           pctStakedInput.value = state.pctShieldedStaked;
           commissionInput.value = state.commissionPct;
-          delegatorInput.value = state.delegatorZec;
+          if (delegatorInput) {
+            const snapped = snapDelegationValue(state.delegatorZec);
+            state.delegatorZec = snapped;
+            delegatorInput.value = `${snapped}`;
+          }
         }
 
         function syncURL() {
@@ -371,12 +411,13 @@
             0,
             Number.isFinite(state.delegatorZec) ? state.delegatorZec : 0,
           );
+          const snappedDelegatorZec = snapDelegationValue(delegatorZec);
           const sharePct =
             stakedZec > 0
-              ? clamp((delegatorZec / stakedZec) * 100, 0, 100)
+              ? clamp((snappedDelegatorZec / stakedZec) * 100, 0, 100)
               : 0;
           params.set("d", sharePct.toString());
-          params.set("dz", delegatorZec.toString());
+          params.set("dz", snappedDelegatorZec.toString());
           const nextQuery = params.toString();
           const currentQuery = window.location.search.startsWith("?")
             ? window.location.search.slice(1)
@@ -482,11 +523,15 @@
 
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
+          if (summaryElements.pctStaked) {
+            summaryElements.pctStaked.title = `${fmtZec(derived.stakedZec)} ZEC`;
+          }
           summaryElements.stakedZec.textContent = fmtZec(derived.stakedZec);
           summaryElements.totalStakedZec.textContent = fmtZec(derived.totalStakedZec);
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
           summaryElements.commission.textContent = fmtPct(derived.commissionPct);
           summaryElements.dailyYieldZec.textContent = fmtZec(derived.netDailyZec);
+          summaryElements.annualYieldZec.textContent = fmtZec(derived.netAnnualZec);
           summaryElements.annualizedPct.textContent = fmtPct(derived.annualizedPct);
           updatePctStakedWarning(derived.pctShieldedStaked);
           if (coverageNote) {
@@ -534,7 +579,7 @@
           if (params.has("dz")) {
             const parsed = Number.parseFloat(params.get("dz"));
             if (Number.isFinite(parsed)) {
-              state.delegatorZec = Math.max(0, parsed);
+              state.delegatorZec = snapDelegationValue(Math.max(0, parsed));
             }
           } else if (params.has("d")) {
             const parsed = Number.parseFloat(params.get("d"));
@@ -542,9 +587,11 @@
               const legacyPct = clamp(parsed, 0, 100);
               const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
               const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-              state.delegatorZec = (stakedZec * legacyPct) / 100;
+              state.delegatorZec = snapDelegationValue((stakedZec * legacyPct) / 100);
             }
           }
+
+          state.delegatorZec = snapDelegationValue(state.delegatorZec);
         }
 
         attachNumberInputHandlers(pctStakedInput, {
@@ -559,11 +606,21 @@
           stateKey: "commissionPct",
         });
 
-        attachNumberInputHandlers(delegatorInput, {
-          min: 0,
-          max: Number.POSITIVE_INFINITY,
-          stateKey: "delegatorZec",
-        });
+        if (delegatorInput) {
+          delegatorInput.addEventListener("change", (event) => {
+            const parsed = Number.parseFloat(event.target.value);
+            if (!Number.isFinite(parsed)) {
+              return;
+            }
+            const nextValue = snapDelegationValue(parsed);
+            const previousValue = state.delegatorZec;
+            state.delegatorZec = nextValue;
+            event.target.value = `${nextValue}`;
+            if (previousValue !== nextValue) {
+              propagateStateChange();
+            }
+          });
+        }
 
         resetButton.addEventListener("click", () => {
           Object.assign(state, DEFAULTS);
