@@ -232,7 +232,7 @@
               <div class="field">
                 <label for="inputPctStaked" title="What portion of all shielded ZEC participates in staking?">% of shielded pool staked</label>
                 <input id="inputPctStaked" name="pct-staked" type="range" min="0" max="100" step="0.1">
-                <small id="pctStakedWarning" class="inline-note warning-note" hidden>Important: Potential Privacy leakage</small>
+                <small id="pctStakedWarning" class="inline-note warning-note" hidden>Warning: Staking Centralization Risk</small>
               </div>
               <div class="field">
                 <label for="commissionInput">Finalizer Commission (%)</label>
@@ -542,10 +542,17 @@
 
         function updatePctStakedWarning(value) {
           if (!pctStakedInput) return;
-          const warningActive = value < 30 || value > 70;
+          const lowStaked = value <= 10;
+          const highStaked = value > 70;
+          const warningActive = lowStaked || highStaked;
           pctStakedInput.classList.toggle("warning", warningActive);
           if (pctStakedWarningNote) {
             pctStakedWarningNote.hidden = !warningActive;
+            if (warningActive) {
+              pctStakedWarningNote.textContent = lowStaked
+                ? "Warning: Staking Centralization Risk"
+                : "Important: Potential Privacy leakage";
+            }
           }
         }
 
