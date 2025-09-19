@@ -494,7 +494,9 @@
         function render(derived) {
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
-          summaryElements.pctStaked.title = `${fmtZec(derived.stakedZec)} ZEC`;
+          if (summaryElements.pctStaked) {
+            summaryElements.pctStaked.title = `${fmtZec(derived.stakedZec)} ZEC`;
+          }
           summaryElements.stakedZec.textContent = fmtZec(derived.stakedZec);
           summaryElements.totalStakedZec.textContent = fmtZec(derived.totalStakedZec);
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
