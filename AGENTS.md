@@ -22,22 +22,19 @@
   - `roundsPerDay = 1152` (≈75s round cadence).
   - `shareStakers = 0.40` of each round's reward is assumed to flow to stakers (other protocol splits are informational only in this UI).
 - Adjustable controls (state keys → UI inputs):
-  - `finalizerWeight`: numeric input (0–1).
   - `pctShieldedStaked`: numeric input (0–100).
   - `commissionPct`: numeric input (0–100).
   - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
-- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, selection probability 0.01 (1%), 10% commission, 60 ZEC delegation (≈2% of the default finalizer stake), 10% of shielded pool staked.
+- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 10% of the shielded pool staked.
 - Derived relationships powering the summary copy:
   - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
-  - `finalizerStakeZec = totalStakedZec × finalizerWeight`
-  - `userShareOfFinalizer = finalizerStakeZec > 0 ? clamp(delegatorZec / finalizerStakeZec, 0, 1) : 0`
+  - `delegatorShare = totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0`
   - `netFactor = 1 - commissionPct / 100`
-  - `rewardPerPick = roundReward × shareStakers`
-  - `expectedPicksPerDay = finalizerWeight × roundsPerDay`
-  - `perPickZec = rewardPerPick × userShareOfFinalizer × netFactor`
-  - `perDayZec = expectedPicksPerDay × rewardPerPick × userShareOfFinalizer × netFactor`
+  - `rewardPerRound = roundReward × shareStakers`
+  - `rewardPerDay = rewardPerRound × roundsPerDay`
+  - `perDayZec = rewardPerDay × delegatorShare × netFactor`
   - `perYearZec = perDayZec × 365`
-  - `annualizedPct = delegatorZec > 0 ? (perDayZec × 365 / delegatorZec) × 100 : 0`
+  - `annualizedPct = delegatorZec > 0 ? (perYearZec / delegatorZec) × 100 : 0`
 
 ## Application Architecture
 - Simple state container (`state`) backed by helper functions:
@@ -46,17 +43,16 @@
 - Event handling:
   - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
-  - When the delegator amount meets or exceeds the finalizer stake, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
+  - When the delegator amount meets or exceeds the staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
 - Formatting helpers rely on `Intl.NumberFormat` instances; keep locale-agnostic formatting unless a new requirement demands otherwise.
 
 ## URL Parameters & Deep Linking
 - Query params share state for bookmarking/sharing:
-  - `p`: selection probability (`finalizerWeight`, 0–1).
   - `ps`: percent of shielded pool staked (`pctShieldedStaked`, 0–100).
   - `c`: commission percent (`commissionPct`, 0–100).
   - `dz`: delegator amount in ZEC (`delegatorZec`, ≥0).
   - `d`: delegator share percent (legacy; still emitted for compatibility, but ignored when `dz` is present).
-- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `finalizerWeight` and `pctShieldedStaked`. `syncURL()` writes back when state changes and includes both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
+- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `pctShieldedStaked`. `syncURL()` writes back when state changes and includes both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
 
 ## Styling & Accessibility Notes
 - Dark-first palette defined in CSS `:root`.
