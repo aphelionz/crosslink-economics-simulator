@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crosslink Issuance Explorer</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <header class="site-header">
+        <h1 class="site-title">Crosslink</h1>
+        <nav aria-label="Primary">
+          <a href="index.html">Simulator</a>
+          <a href="issuance-explorer.html" aria-current="page">Issuance Explorer</a>
+        </nav>
+      </header>
+      <header class="page-header">
+        <div class="page-header-text">
+          <h2>Issuance Flow Explorer</h2>
+          <p>Visualize how new Zcash rewards flow from protocol issuance through a finalizer and onward to delegators.</p>
+        </div>
+      </header>
+
+      <section class="panel sankey" aria-labelledby="sankey-issuance">
+        <div class="page-header-text">
+          <h3 id="sankey-issuance">Block Issuance → Finalizer</h3>
+          <p class="sankey-caption">Each round issues 1.5625 ZEC, of which 40% reaches the active finalizer under the simulator’s assumptions.</p>
+        </div>
+        <svg viewBox="0 0 760 240" role="img" aria-labelledby="sankey-issuance">
+          <defs>
+            <linearGradient id="flow-finalizer" x1="0%" x2="100%" y1="50%" y2="50%">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3"></stop>
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.8"></stop>
+            </linearGradient>
+            <linearGradient id="flow-ecosystem" x1="0%" x2="100%" y1="50%" y2="50%">
+              <stop offset="0%" stop-color="#6366f1" stop-opacity="0.25"></stop>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.55"></stop>
+            </linearGradient>
+          </defs>
+          <rect x="32" y="40" width="180" height="120" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2"></rect>
+          <text x="122" y="90" text-anchor="middle" fill="#f8fafc" font-size="18">Protocol</text>
+          <text x="122" y="116" text-anchor="middle" fill="#94a3b8" font-size="14">Block issuance</text>
+          <text x="122" y="140" text-anchor="middle" fill="#94a3b8" font-size="13">1.5625 ZEC</text>
+
+          <rect x="548" y="58" width="180" height="90" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2"></rect>
+          <text x="638" y="98" text-anchor="middle" fill="#f8fafc" font-size="18">Finalizer</text>
+          <text x="638" y="122" text-anchor="middle" fill="#94a3b8" font-size="13">0.625 ZEC (40%)</text>
+
+          <rect x="548" y="152" width="180" height="70" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.2)" stroke-width="2"></rect>
+          <text x="638" y="194" text-anchor="middle" fill="#94a3b8" font-size="14">Other allocations</text>
+
+          <path d="M212 100 C 320 80, 420 80, 548 90" fill="none" stroke="url(#flow-finalizer)" stroke-width="34" stroke-linecap="round"></path>
+          <path d="M212 130 C 320 150, 420 175, 548 184" fill="none" stroke="url(#flow-ecosystem)" stroke-width="28" stroke-linecap="round"></path>
+        </svg>
+      </section>
+
+      <section class="panel sankey" aria-labelledby="sankey-delegator">
+        <div class="page-header-text">
+          <h3 id="sankey-delegator">Finalizer → Delegator</h3>
+          <p class="sankey-caption">The finalizer shares rewards with delegators after commission. The example below mirrors the 10% fee default.</p>
+        </div>
+        <svg viewBox="0 0 760 240" role="img" aria-labelledby="sankey-delegator">
+          <defs>
+            <linearGradient id="flow-commission" x1="0%" x2="100%" y1="50%" y2="50%">
+              <stop offset="0%" stop-color="#f97316" stop-opacity="0.25"></stop>
+              <stop offset="100%" stop-color="#f97316" stop-opacity="0.65"></stop>
+            </linearGradient>
+            <linearGradient id="flow-delegator" x1="0%" x2="100%" y1="50%" y2="50%">
+              <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"></stop>
+              <stop offset="100%" stop-color="#10b981" stop-opacity="0.7"></stop>
+            </linearGradient>
+          </defs>
+          <rect x="32" y="72" width="180" height="96" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2"></rect>
+          <text x="122" y="118" text-anchor="middle" fill="#f8fafc" font-size="18">Finalizer</text>
+          <text x="122" y="142" text-anchor="middle" fill="#94a3b8" font-size="13">Net rewards</text>
+
+          <rect x="548" y="56" width="180" height="76" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2"></rect>
+          <text x="638" y="94" text-anchor="middle" fill="#f8fafc" font-size="17">Delegator</text>
+          <text x="638" y="116" text-anchor="middle" fill="#94a3b8" font-size="13">90% share</text>
+
+          <rect x="548" y="150" width="180" height="66" rx="18" fill="#1f2937" stroke="rgba(148, 163, 184, 0.2)" stroke-width="2"></rect>
+          <text x="638" y="188" text-anchor="middle" fill="#94a3b8" font-size="13">Finalizer commission (10%)</text>
+
+          <path d="M212 110 C 320 96, 420 86, 548 86" fill="none" stroke="url(#flow-delegator)" stroke-width="30" stroke-linecap="round"></path>
+          <path d="M212 140 C 320 156, 420 166, 548 180" fill="none" stroke="url(#flow-commission)" stroke-width="24" stroke-linecap="round"></path>
+        </svg>
+      </section>
+
+      <section class="panel">
+        <h3>How to Read These Charts</h3>
+        <p class="sankey-caption">Widths are illustrative rather than to scale; consult the simulator to explore precise payouts. Use the navigation above to jump back and forth as you model scenarios.</p>
+      </section>
+    </main>
+  </body>
+</html>

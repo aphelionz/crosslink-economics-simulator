@@ -1,14 +1,16 @@
 # AGENTS.md
 
 ## Repository Overview
-- Interactive Crosslink economics simulator delivered as a single static HTML document (`public/index.html`).
-- Uses vanilla JavaScript and inline CSS with no external runtime dependencies.
-- No package.json, build tooling, or framework runtime; everything must continue to work when served as plain static assets.
-- UI currently includes the configuration form and textual summary only (Estimates and detailed metrics panels were removed).
+- Crosslink economics experience delivered as static assets under `public/` with no build tooling.
+- `index.html` hosts the interactive simulator; `issuance-explorer.html` provides complementary issuance visualizations.
+- Shared styling now lives in `style.css`; both pages remain framework-free and work when served as plain static files.
+- UI still focuses on the configuration form, textual summary, and light-weight visuals (estimates panel remains removed).
 
 ## File Layout
-- `public/index.html`: Entry point containing markup, styles, and the full application script for state, derived metrics, and UI logic.
-- `.github/workflows/deploy.yml`: GitHub Pages deployment pipeline that uploads `index.html` on pushes to `main`.
+- `public/index.html`: Simulator entry point containing markup and the application script for state, derived metrics, and UI logic.
+- `public/issuance-explorer.html`: Static issuance/Sankey overview that reuses shared styling.
+- `public/style.css`: Shared stylesheet for both pages; keep definitions in sync if structural changes occur.
+- `.github/workflows/deploy.yml`: GitHub Pages deployment pipeline that uploads the `public/` directory on pushes to `main`.
 - `AGENTS.md`: This guidance file. Update this first when repo assumptions change.
 
 ## Tooling & Runtime Expectations
@@ -47,6 +49,12 @@
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
   - When the delegator amount meets or exceeds the baseline staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
 - Formatting helpers rely on `Intl.NumberFormat` instances; keep locale-agnostic formatting unless a new requirement demands otherwise.
+- Navigation bar links the simulator and issuance explorer. Set `aria-current="page"` on the active link when adding new pages.
+
+## Issuance Explorer Page
+- Purely presentational SVG Sankey diagrams—no extra scripts besides the shared stylesheet.
+- Update the gradients or layout directly in the markup when reward assumptions change.
+- Shares typography and panel styles with the simulator; keep `style.css` coherent when tweaking visuals.
 
 ## URL Parameters & Deep Linking
 - Query params share state for bookmarking/sharing:
@@ -66,13 +74,13 @@
 - GitHub workflow `.github/workflows/deploy.yml`:
   1. Runs on pushes to `main`.
   2. Checks out the repo.
-  3. Uploads `index.html` as the Pages artifact via `actions/upload-pages-artifact@v3`.
+  3. Uploads the `public` directory as the Pages artifact via `actions/upload-pages-artifact@v3`.
   4. Deploys with `actions/deploy-pages@v4` to the `github-pages` environment.
-- Renaming or relocating `index.html` requires updating the workflow `path` to keep deployments working.
+- Renaming or relocating assets requires updating the workflow `path` to keep deployments working.
 - No other CI checks currently run; consider adding linting/tests before expanding the workflow.
 
 ## Contribution Guidelines
-- Stay within the static-single-file architecture unless stakeholders approve a larger rework. If you must split files, update the workflow and this document.
+- Keep the experience within lightweight static assets; if new pages or bundles are introduced, update the workflow and this document accordingly.
 - Prefer small, well-commented helper functions over introducing frameworks. Keep functions idempotent so they can be reused across multiple UI updates.
 - Maintain consistent formatting (2-space indentation inside `<script>`/CSS blocks) and avoid non-ASCII characters.
 - When adjusting economic assumptions, update both the constants in `index.html` and the documentation above.
@@ -85,6 +93,7 @@
   1. Adjust parameters.
   2. Click "Copy link to scenario" (ensure clipboard success message appears).
   3. Open the copied link in a fresh tab to confirm state hydration.
+- Visit `issuance-explorer.html` via the navigation bar and confirm Sankey visuals render correctly.
 - Confirm GitHub Pages deployment still references the correct asset path after structural changes (run the workflow in a PR if necessary).
 
 ## Known Limitations / Future Work

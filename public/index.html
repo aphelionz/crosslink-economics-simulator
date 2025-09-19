@@ -4,230 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crosslink Economics Simulator</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --surface: #111827;
-        --surface-alt: #070b16;
-        --text: #f8fafc;
-        --muted: #94a3b8;
-        --border: rgba(148, 163, 184, 0.25);
-        --accent: #f59e0b;
-        --accent-soft: rgba(245, 158, 11, 0.18);
-        --warning: #facc15;
-        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      h2 {
-        margin-top: 0;
-      }
-      body {
-        margin: 0;
-        background: var(--surface-alt);
-        color: var(--text);
-      }
-      main {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 2.5rem 1.5rem 3rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1.75rem;
-      }
-      .page-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 1rem 1.5rem;
-        align-items: flex-start;
-      }
-      .page-header-text {
-        flex: 1 1 320px;
-        min-width: 260px;
-      }
-      header h1 {
-        font-size: clamp(2rem, 5vw, 2.6rem);
-        margin: 0;
-      }
-      header p {
-        margin: 0.5rem 0 0;
-        max-width: 80ch;
-        color: var(--muted);
-        line-height: 1.5;
-      }
-      .page-header-actions {
-        display: flex;
-        align-items: flex-start;
-      }
-      .page-header-actions button {
-        white-space: nowrap;
-      }
-      header p strong,
-      .accent {
-        color: var(--accent);
-      }
-      .accent,
-      .summary-strong {
-        font-weight: 600;
-      }
-      .panel {
-        background: var(--surface);
-        border-radius: 18px;
-        padding: 1.75rem;
-        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
-        border: 1px solid var(--border);
-      }
-      .panel-intro {
-        display: grid;
-        gap: 1.75rem;
-      }
-      .intro-copy {
-        color: var(--muted);
-        font-size: 1.5rem;
-        line-height: 1.6;
-      }
-      .simulator-disclaimer {
-        margin: 1.25rem 0 0;
-        font-size: 0.92rem;
-        color: var(--muted);
-        line-height: 1.4;
-      }
-      form.controls {
-        display: grid;
-        gap: 1.5rem;
-      }
-      fieldset {
-        margin: 0;
-        padding: 0;
-        border: none;
-        display: grid;
-        gap: 0.75rem;
-      }
-      fieldset legend {
-        font-weight: 600;
-        font-size: 1.05rem;
-        margin-bottom: 0.25rem;
-      }
-      .field {
-        display: grid;
-        gap: 0.35rem;
-      }
-      .selection-dynamics {
-        display: grid;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-      }
-      .selection-dynamics-title {
-        font-size: 0.82rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-      .selection-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 0.75rem;
-      }
-      .selection-label {
-        font-size: 0.82rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      .selection-value {
-        font-weight: 600;
-        font-size: 1.05rem;
-        text-align: right;
-      }
-      small {
-        color: var(--muted);
-      }
-      .inline-note {
-        color: var(--muted);
-        font-size: 0.82rem;
-        margin-top: 0.2rem;
-      }
-      label {
-        font-size: 0.92rem;
-        color: var(--muted);
-      }
-      select,
-      input[type="number"] {
-        appearance: none;
-        font: inherit;
-        padding: 0.55rem 0.65rem;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text);
-      }
-      input[type="range"] {
-        width: 100%;
-        margin: 0.35rem 0;
-      }
-      input[type="range"].warning {
-        accent-color: var(--warning);
-      }
-      .warning-note {
-        color: var(--warning);
-        font-weight: 600;
-      }
-      input[type="number"]:focus,
-      select:focus {
-        outline: 2px solid rgba(245, 158, 11, 0.45);
-        outline-offset: 2px;
-      }
-      button {
-        font: inherit;
-        border: 1px solid transparent;
-        border-radius: 999px;
-        padding: 0.55rem 1.15rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        background: var(--accent-soft);
-        color: var(--accent);
-        cursor: pointer;
-        transition: background 150ms ease, transform 150ms ease;
-      }
-      button:hover {
-        background: rgba(245, 158, 11, 0.28);
-      }
-      button:active {
-        transform: scale(0.98);
-      }
-      .button-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 0.5rem;
-      }
-      .visually-hidden {
-        position: absolute !important;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-      @media (min-width: 720px) {
-        .panel-intro {
-          grid-template-columns: 1fr 445px;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <main>
+      <header class="site-header">
+        <h1 class="site-title">Crosslink</h1>
+        <nav aria-label="Primary">
+          <a href="index.html" aria-current="page">Simulator</a>
+          <a href="issuance-explorer.html">Issuance Explorer</a>
+        </nav>
+      </header>
       <header class="page-header">
         <div class="page-header-text">
-          <h1>Crosslink Economics Simulator</h1>
+          <h2>Crosslink Economics Simulator</h2>
           <p>The Crosslink v1 economics, demonstrated simply.</p>
         </div>
         <div class="page-header-actions">
@@ -258,7 +48,7 @@
           <span id="commission" class="accent"></span>%
         </div>
         <section class="panel">
-          <h2>Configure Scenario</h2>
+          <h3>Configure Scenario</h3>
           <form class="controls" id="controls" autocomplete="off">
             <fieldset>
               <div class="field">
