@@ -42,7 +42,7 @@
   - `derive(state)` centralizes domain math, including shielded staking assumptions and net reward projections.
   - `propagateStateChange()` handles recalculation, DOM updates, optional input syncing, and URL serialization.
 - Event handling:
-  - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
+  - Range and number inputs bind directly to `updateState` so clamping happens centrally before re-render.
   - Delegation is selected from a dropdown of quantized ZEC amounts (0.1 → 100,000); `snapDelegationValue` keeps query params and state aligned with the allowed steps.
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
   - When the delegator amount meets or exceeds the baseline staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
@@ -53,8 +53,9 @@
   - `ps`: percent of shielded pool staked (`pctShieldedStaked`, 0–100).
   - `c`: commission percent (`commissionPct`, 0–100).
   - `dz`: delegator amount in ZEC (`delegatorZec`, ≥0).
-  - `d`: delegator share percent (legacy; still emitted for compatibility, but ignored when `dz` is present).
-- `applyStateFromQuery()` hydrates state on load; it prefers `dz` and converts legacy `d` values into ZEC using the current `pctShieldedStaked`. `syncURL()` writes back when state changes and includes both `dz` (canonical amount) and `d` (derived share percent) so older links remain interpretable.
+- Legacy `d` share parameter has been removed; only `dz` is supported going forward.
+  - `applyStateFromQuery()` hydrates state on load using the `dz` amount when present, falling back to defaults otherwise.
+  - `syncURL()` writes `dz` when state changes.
 
 ## Styling & Accessibility Notes
 - Dark-first palette defined in CSS `:root`.

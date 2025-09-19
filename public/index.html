@@ -310,7 +310,6 @@
         };
 
         const state = { ...DEFAULTS };
-        let currentDerived = null;
 
         const zecFormatter = new Intl.NumberFormat(undefined, {
           minimumFractionDigits: 0,
@@ -348,9 +347,19 @@
           return Math.min(max, Math.max(min, value));
         }
 
-        function shouldDeferNumericParsing(value) {
-          if (typeof value !== "string") return false;
-          return value === "" || value === "-" || value === "+" || value.endsWith(".");
+        function updateState(key, rawValue) {
+          if (!Number.isFinite(rawValue)) return false;
+          let next = rawValue;
+          if (key === "delegatorZec") {
+            next = snapDelegationValue(Math.max(0, next));
+          } else if (key === "pctShieldedStaked" || key === "commissionPct") {
+            next = clamp(next, 0, 100);
+          }
+          if (state[key] === next) {
+            return false;
+          }
+          state[key] = next;
+          return true;
         }
 
         function fmtZec(value) {
@@ -375,25 +384,12 @@
             return DELEGATION_LEVELS[0];
           }
           let closest = DELEGATION_LEVELS[0];
-          let smallestDelta = Math.abs(value - closest);
-          for (let index = 1; index < DELEGATION_LEVELS.length; index += 1) {
-            const candidate = DELEGATION_LEVELS[index];
-            const delta = Math.abs(value - candidate);
-            if (delta < smallestDelta) {
-              closest = candidate;
-              smallestDelta = delta;
+          for (const level of DELEGATION_LEVELS) {
+            if (Math.abs(value - level) < Math.abs(value - closest)) {
+              closest = level;
             }
           }
           return closest;
-        }
-
-        function normalizeState() {
-          state.pctShieldedStaked = clamp(state.pctShieldedStaked, 0, 100);
-          state.commissionPct = clamp(state.commissionPct, 0, 100);
-          const rawDelegator = Number.isFinite(state.delegatorZec)
-            ? state.delegatorZec
-            : 0;
-          state.delegatorZec = snapDelegationValue(Math.max(0, rawDelegator));
         }
 
         function derive(currentState) {
@@ -432,25 +428,15 @@
         }
 
         function syncURL(derived) {
-          const params = new URLSearchParams();
-          params.set("ps", state.pctShieldedStaked.toString());
-          params.set("c", state.commissionPct.toString());
-          const sharePct =
-            derived.stakedZec > 0
-              ? clamp((derived.delegatorZec / derived.stakedZec) * 100, 0, 100)
-              : 0;
-          params.set("d", sharePct.toString());
-          params.set("dz", derived.delegatorZec.toString());
-          const nextQuery = params.toString();
-          const currentQuery = window.location.search.startsWith("?")
-            ? window.location.search.slice(1)
-            : window.location.search;
-          if (currentQuery === nextQuery) {
-            return;
+          const url = new URL(window.location.href);
+          url.searchParams.set("ps", state.pctShieldedStaked.toString());
+          url.searchParams.set("c", state.commissionPct.toString());
+          url.searchParams.set("dz", derived.delegatorZec.toString());
+          const next = `${url.pathname}${url.search}${url.hash}`;
+          const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          if (next !== current) {
+            history.replaceState(null, "", next);
           }
-          const hash = window.location.hash || "";
-          const newUrl = `${window.location.pathname}?${nextQuery}${hash}`;
-          history.replaceState(null, "", newUrl);
         }
 
         const copyButtonDefaultText = copyLinkButton ? copyLinkButton.textContent : "";
@@ -505,47 +491,6 @@
           }
         }
 
-        function attachNumberInputHandlers(input, { min, max, stateKey }) {
-          const coerceValue = (rawValue, { normalizeDisplay = false } = {}) => {
-            const parsed = Number.parseFloat(rawValue);
-            if (!Number.isFinite(parsed)) {
-              return { changed: false, valid: false };
-            }
-            const clamped = clamp(parsed, min, max);
-            if (normalizeDisplay || clamped !== parsed) {
-              input.value = `${clamped}`;
-            }
-            const previous = state[stateKey];
-            if (previous === clamped) {
-              return { changed: false, valid: true };
-            }
-            state[stateKey] = clamped;
-            return { changed: true, valid: true };
-          };
-
-          input.addEventListener("input", () => {
-            const rawValue = input.value;
-            if (shouldDeferNumericParsing(rawValue)) {
-              return;
-            }
-            const result = coerceValue(rawValue);
-            if (result.changed) {
-              propagateStateChange();
-            }
-          });
-
-          input.addEventListener("blur", () => {
-            const result = coerceValue(input.value, { normalizeDisplay: true });
-            if (!result.valid) {
-              input.value = `${state[stateKey]}`;
-              return;
-            }
-            if (result.changed) {
-              propagateStateChange();
-            }
-          });
-        }
-
         function render(derived) {
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
@@ -563,11 +508,9 @@
           if (coverageNote) {
             coverageNote.hidden = !derived.coversStakedPool;
           }
-
         }
 
         function updatePctStakedWarning(value) {
-          if (!pctStakedInput) return;
           const lowStaked = value <= 10;
           const highStaked = value > 70;
           const warningActive = lowStaked || highStaked;
@@ -583,69 +526,53 @@
         }
 
         function propagateStateChange(options = {}) {
-          normalizeState();
-          currentDerived = derive(state);
           if (options.syncInputs) {
             syncInputsFromState();
           }
-          render(currentDerived);
+          const derived = derive(state);
+          render(derived);
           if (!options.skipURL) {
-            syncURL(currentDerived);
+            syncURL(derived);
           }
+          return derived;
         }
 
         function applyStateFromQuery() {
           const params = new URLSearchParams(window.location.search);
 
-          const pctStakedParam = Number.parseFloat(params.get("ps") ?? "");
-          if (Number.isFinite(pctStakedParam)) {
-            state.pctShieldedStaked = pctStakedParam;
-          }
-
-          const commissionParam = Number.parseFloat(params.get("c") ?? "");
-          if (Number.isFinite(commissionParam)) {
-            state.commissionPct = commissionParam;
-          }
+          updateState("pctShieldedStaked", Number.parseFloat(params.get("ps") ?? ""));
+          updateState("commissionPct", Number.parseFloat(params.get("c") ?? ""));
 
           if (params.has("dz")) {
-            const parsed = Number.parseFloat(params.get("dz"));
-            if (Number.isFinite(parsed)) {
-              state.delegatorZec = Math.max(0, parsed);
-            }
-          } else if (params.has("d")) {
-            const parsed = Number.parseFloat(params.get("d"));
-            if (Number.isFinite(parsed)) {
-              const legacyPct = clamp(parsed, 0, 100);
-              const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
-              const stakedZec = (TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-              state.delegatorZec = (stakedZec * legacyPct) / 100;
-            }
+            updateState("delegatorZec", Number.parseFloat(params.get("dz")));
           }
         }
 
-        attachNumberInputHandlers(pctStakedInput, {
-          min: 0,
-          max: 100,
-          stateKey: "pctShieldedStaked",
+        pctStakedInput.addEventListener("input", () => {
+          if (updateState("pctShieldedStaked", pctStakedInput.valueAsNumber)) {
+            propagateStateChange();
+          }
         });
 
-        attachNumberInputHandlers(commissionInput, {
-          min: 0,
-          max: 100,
-          stateKey: "commissionPct",
+        commissionInput.addEventListener("input", () => {
+          if (updateState("commissionPct", commissionInput.valueAsNumber)) {
+            propagateStateChange();
+            commissionInput.value = state.commissionPct;
+          }
+        });
+
+        commissionInput.addEventListener("blur", () => {
+          if (!Number.isFinite(commissionInput.valueAsNumber)) {
+            commissionInput.value = state.commissionPct;
+          }
         });
 
         if (delegatorInput) {
-          delegatorInput.addEventListener("change", (event) => {
-            const parsed = Number.parseFloat(event.target.value);
-            if (!Number.isFinite(parsed)) {
-              return;
-            }
-            const nextValue = snapDelegationValue(parsed);
-            const previousValue = state.delegatorZec;
-            state.delegatorZec = nextValue;
-            event.target.value = `${nextValue}`;
-            if (previousValue !== nextValue) {
+          delegatorInput.addEventListener("change", () => {
+            const parsed = Number.parseFloat(delegatorInput.value);
+            const changed = updateState("delegatorZec", parsed);
+            delegatorInput.value = `${state.delegatorZec}`;
+            if (changed) {
               propagateStateChange();
             }
           });
@@ -658,14 +585,15 @@
 
         if (copyLinkButton) {
           copyLinkButton.addEventListener("click", () => {
-            syncURL(currentDerived);
+            const derived = derive(state);
+            syncURL(derived);
             copyScenarioLink();
           });
         }
 
         applyStateFromQuery();
-        propagateStateChange({ syncInputs: true, skipURL: true });
-        syncURL(currentDerived);
+        const initialDerived = propagateStateChange({ syncInputs: true, skipURL: true });
+        syncURL(initialDerived);
       })();
     </script>
   </body>
