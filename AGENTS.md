@@ -25,7 +25,7 @@
   - `pctShieldedStaked`: numeric input (0–100).
   - `commissionPct`: numeric input (0–100).
   - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
-- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 10% of the shielded pool staked.
+- Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 60 ZEC delegation, 50% of the shielded pool staked.
 - Derived relationships powering the summary copy:
   - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
   - `delegatorShare = totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0`
