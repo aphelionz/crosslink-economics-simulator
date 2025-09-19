@@ -36,6 +36,17 @@
         flex-direction: column;
         gap: 1.75rem;
       }
+      .page-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 1rem 1.5rem;
+        align-items: flex-start;
+      }
+      .page-header-text {
+        flex: 1 1 320px;
+        min-width: 260px;
+      }
       header h1 {
         font-size: clamp(2rem, 5vw, 2.6rem);
         margin: 0;
@@ -45,6 +56,13 @@
         max-width: 80ch;
         color: var(--muted);
         line-height: 1.5;
+      }
+      .page-header-actions {
+        display: flex;
+        align-items: flex-start;
+      }
+      .page-header-actions button {
+        white-space: nowrap;
       }
       header p strong,
       .accent {
@@ -69,6 +87,12 @@
         color: var(--muted);
         font-size: 1.5rem;
         line-height: 1.6;
+      }
+      .simulator-disclaimer {
+        margin: 1.25rem 0 0;
+        font-size: 0.92rem;
+        color: var(--muted);
+        line-height: 1.4;
       }
       form.controls {
         display: grid;
@@ -201,9 +225,14 @@
   </head>
   <body>
     <main>
-      <header>
-        <h1>Crosslink Economics Simulator</h1>
-        <p>The Crosslink v1 economics, demonstrated simply.</p>
+      <header class="page-header">
+        <div class="page-header-text">
+          <h1>Crosslink Economics Simulator</h1>
+          <p>The Crosslink v1 economics, demonstrated simply.</p>
+        </div>
+        <div class="page-header-actions">
+          <button type="button" id="copy-link-button">🔗 Share scenario</button>
+        </div>
       </header>
 
       <div class="panel-intro">
@@ -218,6 +247,9 @@
               <li><span id="sumAnnualYieldZec" class="accent summary-strong"></span> ZEC per year</li>
               <li>or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.</li>
             </ul>
+          </p>
+          <p class="simulator-disclaimer">
+            This simulator provides illustrative estimates only. It is not investment, financial, or legal advice, and real-world outcomes may differ.
           </p>
         </div>
         <div style="display: none">
@@ -252,7 +284,6 @@
                 <small id="delegatorCoverageNote" class="inline-note" hidden>You now match the entire staked pool.</small>
               </div>
               <div class="button-row">
-                <button type="button" id="copy-link-button">Copy link to scenario</button>
                 <button type="button" id="reset-button">Reset to defaults</button>
               </div>
             </fieldset>
@@ -268,16 +299,18 @@
         const ROUNDS_PER_DAY = 1152;
         const DAYS_PER_YEAR = 365;
         const SHARE_STAKERS = 0.40;
+        const TOTAL_SHIELDED_ZEC = 3_000_000;
+        const REWARD_PER_DAY = ROUND_REWARD_ZEC * SHARE_STAKERS * ROUNDS_PER_DAY;
         const DELEGATION_LEVELS = [0.1, 1, 10, 100, 1_000, 10_000, 100_000];
 
         const DEFAULTS = {
-          TOTAL_SHIELDED_ZEC: 3_000_000,
           commissionPct: 10,
           delegatorZec: DELEGATION_LEVELS[2],
           pctShieldedStaked: 50,
         };
 
         const state = { ...DEFAULTS };
+        let currentDerived = null;
 
         const zecFormatter = new Intl.NumberFormat(undefined, {
           minimumFractionDigits: 0,
@@ -310,11 +343,8 @@
         const coverageNote = document.getElementById("delegatorCoverageNote");
         const pctStakedWarningNote = document.getElementById("pctStakedWarning");
 
-        function clamp(value, min, max) {
+        function clamp(value, min, max = Number.POSITIVE_INFINITY) {
           if (!Number.isFinite(value)) return min;
-          if (!Number.isFinite(max)) {
-            return Math.max(min, value);
-          }
           return Math.min(max, Math.max(min, value));
         }
 
@@ -357,33 +387,35 @@
           return closest;
         }
 
-        function derive(currentState) {
-          const pctShieldedStaked = clamp(currentState.pctShieldedStaked, 0, 100);
-          const totalShieldedZec = currentState.TOTAL_SHIELDED_ZEC;
-          const baselineStakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
-          const rawDelegator = Number.isFinite(currentState.delegatorZec)
-            ? currentState.delegatorZec
+        function normalizeState() {
+          state.pctShieldedStaked = clamp(state.pctShieldedStaked, 0, 100);
+          state.commissionPct = clamp(state.commissionPct, 0, 100);
+          const rawDelegator = Number.isFinite(state.delegatorZec)
+            ? state.delegatorZec
             : 0;
-          const delegatorZec = Math.max(0, rawDelegator);
-          const totalStakedZec = baselineStakedZec + delegatorZec;
-          const commissionPct = clamp(currentState.commissionPct, 0, 100);
-          const netFactor = 1 - commissionPct / 100;
-          const rewardPerRound = ROUND_REWARD_ZEC * SHARE_STAKERS;
-          const rewardPerDay = rewardPerRound * ROUNDS_PER_DAY;
-          const delegatorShare =
-            totalStakedZec > 0 ? clamp(delegatorZec / totalStakedZec, 0, 1) : 0;
-          const netDailyZec = rewardPerDay * delegatorShare * netFactor;
+          state.delegatorZec = snapDelegationValue(Math.max(0, rawDelegator));
+        }
+
+        function derive(currentState) {
+          const pctShieldedStaked = currentState.pctShieldedStaked;
+          const delegatorZec = currentState.delegatorZec;
+          const totalShieldedZec = TOTAL_SHIELDED_ZEC;
+          const stakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
+          const totalStakedZec = stakedZec + delegatorZec;
+          const netFactor = 1 - currentState.commissionPct / 100;
+          const delegatorShare = totalStakedZec > 0 ? delegatorZec / totalStakedZec : 0;
+          const netDailyZec = REWARD_PER_DAY * delegatorShare * netFactor;
           const netAnnualZec = netDailyZec * DAYS_PER_YEAR;
           const annualizedPct = delegatorZec > 0 ? (netAnnualZec / delegatorZec) * 100 : 0;
-          const coversStakedPool = baselineStakedZec > 0 && delegatorZec >= baselineStakedZec;
+          const coversStakedPool = stakedZec > 0 && delegatorZec >= stakedZec;
 
           return {
             totalShieldedZec,
             pctShieldedStaked,
-            stakedZec: baselineStakedZec,
+            stakedZec,
             totalStakedZec,
             delegatorZec,
-            commissionPct,
+            commissionPct: currentState.commissionPct,
             netDailyZec,
             netAnnualZec,
             annualizedPct,
@@ -392,32 +424,23 @@
         }
 
         function syncInputsFromState() {
-          pctStakedInput.value = state.pctShieldedStaked;
-          commissionInput.value = state.commissionPct;
+          pctStakedInput.value = `${state.pctShieldedStaked}`;
+          commissionInput.value = `${state.commissionPct}`;
           if (delegatorInput) {
-            const snapped = snapDelegationValue(state.delegatorZec);
-            state.delegatorZec = snapped;
-            delegatorInput.value = `${snapped}`;
+            delegatorInput.value = `${state.delegatorZec}`;
           }
         }
 
-        function syncURL() {
+        function syncURL(derived) {
           const params = new URLSearchParams();
           params.set("ps", state.pctShieldedStaked.toString());
           params.set("c", state.commissionPct.toString());
-          const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
-          const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-          const delegatorZec = Math.max(
-            0,
-            Number.isFinite(state.delegatorZec) ? state.delegatorZec : 0,
-          );
-          const snappedDelegatorZec = snapDelegationValue(delegatorZec);
           const sharePct =
-            stakedZec > 0
-              ? clamp((snappedDelegatorZec / stakedZec) * 100, 0, 100)
+            derived.stakedZec > 0
+              ? clamp((derived.delegatorZec / derived.stakedZec) * 100, 0, 100)
               : 0;
           params.set("d", sharePct.toString());
-          params.set("dz", snappedDelegatorZec.toString());
+          params.set("dz", derived.delegatorZec.toString());
           const nextQuery = params.toString();
           const currentQuery = window.location.search.startsWith("?")
             ? window.location.search.slice(1)
@@ -483,44 +506,47 @@
         }
 
         function attachNumberInputHandlers(input, { min, max, stateKey }) {
-          input.addEventListener("input", (event) => {
-            const rawValue = event.target.value;
+          const coerceValue = (rawValue, { normalizeDisplay = false } = {}) => {
+            const parsed = Number.parseFloat(rawValue);
+            if (!Number.isFinite(parsed)) {
+              return { changed: false, valid: false };
+            }
+            const clamped = clamp(parsed, min, max);
+            if (normalizeDisplay || clamped !== parsed) {
+              input.value = `${clamped}`;
+            }
+            const previous = state[stateKey];
+            if (previous === clamped) {
+              return { changed: false, valid: true };
+            }
+            state[stateKey] = clamped;
+            return { changed: true, valid: true };
+          };
+
+          input.addEventListener("input", () => {
+            const rawValue = input.value;
             if (shouldDeferNumericParsing(rawValue)) {
               return;
             }
-            const parsed = Number.parseFloat(rawValue);
-            if (!Number.isFinite(parsed)) {
-              return;
-            }
-            const clampedValue = clamp(parsed, min, max);
-            const previousValue = state[stateKey];
-            state[stateKey] = clampedValue;
-            if (clampedValue !== parsed) {
-              event.target.value = `${clampedValue}`;
-            }
-            if (previousValue !== clampedValue) {
+            const result = coerceValue(rawValue);
+            if (result.changed) {
               propagateStateChange();
             }
           });
 
-          input.addEventListener("blur", (event) => {
-            const rawValue = event.target.value;
-            const parsed = Number.parseFloat(rawValue);
-            const previousValue = state[stateKey];
-            const nextValue = Number.isFinite(parsed)
-              ? clamp(parsed, min, max)
-              : previousValue;
-            state[stateKey] = nextValue;
-            event.target.value = `${nextValue}`;
-            if (previousValue !== nextValue) {
+          input.addEventListener("blur", () => {
+            const result = coerceValue(input.value, { normalizeDisplay: true });
+            if (!result.valid) {
+              input.value = `${state[stateKey]}`;
+              return;
+            }
+            if (result.changed) {
               propagateStateChange();
             }
           });
         }
 
-        function render() {
-          const derived = derive(state);
-
+        function render(derived) {
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
           if (summaryElements.pctStaked) {
@@ -557,48 +583,44 @@
         }
 
         function propagateStateChange(options = {}) {
+          normalizeState();
+          currentDerived = derive(state);
           if (options.syncInputs) {
             syncInputsFromState();
           }
-          render();
+          render(currentDerived);
           if (!options.skipURL) {
-            syncURL();
+            syncURL(currentDerived);
           }
         }
 
         function applyStateFromQuery() {
           const params = new URLSearchParams(window.location.search);
 
-          if (params.has("ps")) {
-            const parsed = Number.parseFloat(params.get("ps"));
-            if (Number.isFinite(parsed)) {
-              state.pctShieldedStaked = clamp(parsed, 0, 100);
-            }
+          const pctStakedParam = Number.parseFloat(params.get("ps") ?? "");
+          if (Number.isFinite(pctStakedParam)) {
+            state.pctShieldedStaked = pctStakedParam;
           }
 
-          if (params.has("c")) {
-            const parsed = Number.parseFloat(params.get("c"));
-            if (Number.isFinite(parsed)) {
-              state.commissionPct = clamp(parsed, 0, 100);
-            }
+          const commissionParam = Number.parseFloat(params.get("c") ?? "");
+          if (Number.isFinite(commissionParam)) {
+            state.commissionPct = commissionParam;
           }
 
           if (params.has("dz")) {
             const parsed = Number.parseFloat(params.get("dz"));
             if (Number.isFinite(parsed)) {
-              state.delegatorZec = snapDelegationValue(Math.max(0, parsed));
+              state.delegatorZec = Math.max(0, parsed);
             }
           } else if (params.has("d")) {
             const parsed = Number.parseFloat(params.get("d"));
             if (Number.isFinite(parsed)) {
               const legacyPct = clamp(parsed, 0, 100);
               const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
-              const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-              state.delegatorZec = snapDelegationValue((stakedZec * legacyPct) / 100);
+              const stakedZec = (TOTAL_SHIELDED_ZEC * pctStaked) / 100;
+              state.delegatorZec = (stakedZec * legacyPct) / 100;
             }
           }
-
-          state.delegatorZec = snapDelegationValue(state.delegatorZec);
         }
 
         attachNumberInputHandlers(pctStakedInput, {
@@ -636,14 +658,14 @@
 
         if (copyLinkButton) {
           copyLinkButton.addEventListener("click", () => {
-            syncURL();
+            syncURL(currentDerived);
             copyScenarioLink();
           });
         }
 
         applyStateFromQuery();
         propagateStateChange({ syncInputs: true, skipURL: true });
-        syncURL();
+        syncURL(currentDerived);
       })();
     </script>
   </body>
