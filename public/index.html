@@ -117,11 +117,6 @@
         font-size: 1.05rem;
         text-align: right;
       }
-      .selection-footnote {
-        color: var(--muted);
-        font-size: 0.78rem;
-        line-height: 1.4;
-      }
       small {
         color: var(--muted);
       }
@@ -174,31 +169,6 @@
         gap: 0.75rem;
         margin-top: 0.5rem;
       }
-      .yield-panel {
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
-      }
-      .yield-grid {
-        display: grid;
-        gap: 1rem;
-      }
-      .yield-item {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-      }
-      .yield-label {
-        font-size: 0.95rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      .yield-value {
-        font-size: clamp(1.8rem, 4vw, 2.3rem);
-        font-weight: 600;
-        color: var(--accent);
-      }
       .visually-hidden {
         position: absolute !important;
         width: 1px;
@@ -210,46 +180,9 @@
         white-space: nowrap;
         border: 0;
       }
-      .metrics {
-        display: grid;
-        gap: 1rem;
-      }
-      .metric-card h3 {
-        margin-top: 0;
-        font-size: 1.05rem;
-        margin-bottom: 0.75rem;
-      }
-      .info-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.75rem;
-        padding: 0.35rem 0;
-        font-size: 0.95rem;
-      }
-      .info-row span:first-child {
-        color: var(--muted);
-      }
-      .note p {
-        margin: 0.35rem 0 0;
-        color: var(--muted);
-        font-size: 0.9rem;
-        line-height: 1.5;
-      }
-      .note p:first-child {
-        margin-top: 0;
-      }
       @media (min-width: 720px) {
         .panel-intro {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        form.controls {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .metrics {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .yield-grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: 1fr 445px;
         }
       }
     </style>
@@ -264,14 +197,13 @@
       <div class="panel-intro">
         <div class="intro-copy">
           <p>
-            There is currently <span id="sumTotalShielded" class="accent"></span> ZEC in the shielded pools.
+            There is currently <span id="sumTotalShielded" class="accent"></span> ZEC in the Orchard Pool.
             Assume <span id="sumPctStaked" class="accent"></span> of that is staked
             (<span id="sumStakedZec" class="accent"></span> ZEC).
           </p>
           <p>
-            You are delegating <span id="sumDelegationZec" class="accent"></span> ZEC to a finalizer with
-            <span id="sumFinalizerPct" class="accent"></span> voting power (≈<span id="sumFinalizerStake"
-            class="accent"></span> ZEC stake).
+            You are delegating <span id="sumDelegationZec" class="accent"></span> ZEC,
+            representing <span id="sumDelegationShare" class="accent"></span> of the staked pool.
           </p>
           <p>
             Your yield will be roughly <span id="sumDailyYieldZec" class="accent"></span> ZEC per day
@@ -283,10 +215,6 @@
           <form class="controls" id="controls" autocomplete="off">
             <fieldset>
               <div class="field">
-                <label for="finalizer-weight">Finalizer Selection Probability (Weight)</label>
-                <input id="finalizer-weight" name="finalizer-weight" type="number" inputmode="decimal" min="0" max="1" step="0.01" aria-describedby="finalizer-weight-note" title="Probability p (0-1) that your finalizer is selected on a given round; also represents its stake share.">
-              </div>
-              <div class="field">
                 <label for="inputPctStaked" title="What portion of all shielded ZEC participates in staking?">% of shielded pool staked</label>
                 <input id="inputPctStaked" name="pct-staked" type="number" min="0" max="100" step="0.01" inputmode="decimal">
               </div>
@@ -297,7 +225,7 @@
               <div class="field">
                 <label for="delegator">Your Delegation (ZEC)</label>
                 <input id="delegator" name="delegator" type="number" min="0" step="0.01" inputmode="decimal">
-                <small id="delegatorCoverageNote" class="inline-note" hidden>You now cover this finalizer's entire stake.</small>
+                <small id="delegatorCoverageNote" class="inline-note" hidden>You now match the entire staked pool.</small>
               </div>
               <div class="button-row">
                 <button type="button" id="copy-link-button">Copy link to scenario</button>
@@ -308,44 +236,6 @@
         </section>
       </div>
 
-      <section class="panel yield-panel">
-        <h2>Estimates</h2>
-        <div class="yield-grid">
-          <div class="yield-item" title="Single round when your finalizer is selected">
-            <span class="yield-label">Per Pick</span>
-            <span class="yield-value" data-field="yield-per-round"></span>
-          </div>
-          <div class="yield-item" title="≈1,152 rounds">
-            <span class="yield-label">Per Day</span>
-            <span class="yield-value" data-field="yield-per-day"></span>
-            <span id="expected-picks-label">Expected picks per day:</span>
-            <span data-field="expected-picks"></span>
-            <span title="μ = p × Rounds per Day. Example: p=0.021 (≈2.1% weight), Rounds/day=1152 → μ≈24.2.">i</span>
-          </div>
-          <div class="yield-item" title="≈420,480 rounds">
-            <span class="yield-label">Per Year</span>
-            <span class="yield-value" data-field="yield-per-year"></span>
-          </div>
-        </div>
-        <small class="selection-footnote">Displayed values are expected rates. Protocol payouts accrue and are realized on unstake (per Crosslink's payout cadence).</small>
-        <small>Rewards ignore fees, slashing, and privacy batching.</small>
-      </section>
-
-      <section class="metrics">
-        <article class="panel metric-card">
-          <h3>Your Finalizer &amp; Delegators</h3>
-          <div class="info-row"><span>Your finalizer (gross)</span><span data-field="per-finalizer"></span></div>
-          <div class="info-row"><span>Est. pick cadence:</span><span data-field="example-cadence"></span></div>
-          <div class="info-row"><span>Commission (all finalizers)</span><span data-field="commission-per"></span></div>
-          <div class="info-row"><span>All delegators (net)</span><span data-field="delegator-net"></span></div>
-        </article>
-        <article class="panel metric-card">
-          <h3>You (Delegator)</h3>
-          <div class="info-row"><span>Your share</span><span data-field="example-share"></span></div>
-          <div class="info-row"><span>Your payout</span><span data-field="example-payout"></span></div>
-          <div class="info-row"><span>Other delegators (network)</span><span data-field="other-delegators"></span></div>
-        </article>
-      </section>
     </main>
 
     <script>
@@ -353,13 +243,10 @@
         const ROUND_REWARD_ZEC = 1.5625;
         const ROUNDS_PER_DAY = 1152;
         const DAYS_PER_YEAR = 365;
-        const SHARE_DEV = 0.20;
-        const SHARE_MINERS = 0.40;
         const SHARE_STAKERS = 0.40;
 
         const DEFAULTS = {
           TOTAL_SHIELDED_ZEC: 3_000_000,
-          finalizerWeight: 0.01,
           commissionPct: 10,
           delegatorZec: 60,
           pctShieldedStaked: 10,
@@ -378,12 +265,6 @@
           minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         });
-        const picksFormatter = new Intl.NumberFormat(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
-
-        const finalizerWeightInput = document.getElementById("finalizer-weight");
         const pctStakedInput = document.getElementById("inputPctStaked");
         const commissionInput = document.getElementById("commission");
         const delegatorInput = document.getElementById("delegator");
@@ -395,18 +276,10 @@
           pctStaked: document.getElementById("sumPctStaked"),
           stakedZec: document.getElementById("sumStakedZec"),
           delegationZec: document.getElementById("sumDelegationZec"),
-          finalizerPct: document.getElementById("sumFinalizerPct"),
-          finalizerStake: document.getElementById("sumFinalizerStake"),
+          delegationShare: document.getElementById("sumDelegationShare"),
           dailyYieldZec: document.getElementById("sumDailyYieldZec"),
           annualizedPct: document.getElementById("sumAnnualizedPct"),
         };
-
-        const fields = Object.fromEntries(
-          Array.from(document.querySelectorAll("[data-field]")).map((el) => [
-            el.getAttribute("data-field"),
-            el,
-          ]),
-        );
         const coverageNote = document.getElementById("delegatorCoverageNote");
 
         function clamp(value, min, max) {
@@ -439,165 +312,38 @@
           return `${pctFormatter.format(rounded)}%`;
         }
 
-        function formatZecWithSuffix(value, suffix = "") {
-          if (!Number.isFinite(value)) return "–";
-          const formatted = fmtZec(value);
-          return `${formatted} ZEC${suffix ? ` ${suffix}` : ""}`;
-        }
-
-        function formatYield(value) {
-          if (!Number.isFinite(value)) return "–";
-          return `${fmtZec(value)} ZEC`;
-        }
-
-        function formatAveragePickTime(expectedPicksPerDay) {
-          if (!(expectedPicksPerDay > 0)) return "–";
-          const minutes = (24 * 60) / expectedPicksPerDay;
-          if (minutes < 120) {
-            const rounded = Math.round(minutes * 10) / 10;
-            return `${rounded.toFixed(1)} min`;
-          }
-          if (minutes < 180) {
-            return `${Math.round(minutes)} min`;
-          }
-          const totalMinutes = Math.round(minutes);
-          let hours = Math.floor(totalMinutes / 60);
-          let mins = totalMinutes - hours * 60;
-          if (mins === 60) {
-            hours += 1;
-            mins = 0;
-          }
-          return `${hours}:${String(mins).padStart(2, "0")} h`;
-        }
-
-        function computeEstimates(currentState, context) {
-          const commissionPct = clamp(currentState.commissionPct, 0, 100);
-          const commissionFrac = commissionPct / 100;
-          const netFactor = 1 - commissionFrac;
-          const finalizerWeight = clamp(currentState.finalizerWeight, 0, 1);
-          const userShareOfFinalizer = clamp(
-            Number.isFinite(context.userShareOfFinalizer)
-              ? context.userShareOfFinalizer
-              : 0,
-            0,
-            1,
-          );
-          const delegatorZec = Math.max(
-            0,
-            Number.isFinite(context.delegatorZec) ? context.delegatorZec : 0,
-          );
-
-          const devPerRound = ROUND_REWARD_ZEC * SHARE_DEV;
-          const minerPerRound = ROUND_REWARD_ZEC * SHARE_MINERS;
-          const stakerPerRound = ROUND_REWARD_ZEC * SHARE_STAKERS;
-          const rewardPerPick = stakerPerRound;
-
-          const expectedPicksPerDay = finalizerWeight * ROUNDS_PER_DAY;
-          const expectedPicksPerDayDisplay =
-            Number.isFinite(expectedPicksPerDay) && expectedPicksPerDay >= 0
-              ? picksFormatter.format(expectedPicksPerDay)
-              : "–";
-          const avgPickTimeDisplay = formatAveragePickTime(expectedPicksPerDay);
-          const exampleCadenceDisplay =
-            expectedPicksPerDayDisplay !== "–"
-              ? `${expectedPicksPerDayDisplay} picks/day (avg gap ${avgPickTimeDisplay})`
-              : "–";
-
-          const perPickZec = rewardPerPick * userShareOfFinalizer * netFactor;
-          const perDayZec = expectedPicksPerDay * rewardPerPick * userShareOfFinalizer * netFactor;
-          const perYearZec = perDayZec * DAYS_PER_YEAR;
-          const expectedPerRound = perDayZec / ROUNDS_PER_DAY;
-
-          const scaleSuffix = "/ day";
-          const scaleFactor = ROUNDS_PER_DAY;
-          const devPer = devPerRound * scaleFactor;
-          const minerPer = minerPerRound * scaleFactor;
-          const stakerPer = stakerPerRound * scaleFactor;
-          const perFinalizerGrossRound = rewardPerPick * finalizerWeight;
-          const perFinalizerPer = perFinalizerGrossRound * scaleFactor;
-          const commissionPerRound = perFinalizerGrossRound * commissionFrac;
-          const commissionPer = commissionPerRound * scaleFactor;
-          const delegatorNetPerRound = perFinalizerGrossRound * netFactor;
-          const delegatorNetPer = delegatorNetPerRound * scaleFactor;
-          const thisFinalizerOtherDelegatorsPerRound = Math.max(
-            0,
-            delegatorNetPerRound - expectedPerRound,
-          );
-          const thisFinalizerOtherDelegatorsPer =
-            thisFinalizerOtherDelegatorsPerRound * scaleFactor;
-          const exampleDelegatorPer = perDayZec;
-          const otherDelegatorsPer = Math.max(0, delegatorNetPer - exampleDelegatorPer);
-
-          return {
-            ...context,
-            commissionPct,
-            commissionFrac,
-            netFactor,
-            finalizerWeight,
-            userShareOfFinalizer,
-            delegatorZec,
-            rewardPerPick,
-            perRoundZec: perPickZec,
-            perDayZec,
-            perYearZec,
-            expectedPicksPerDay,
-            expectedPicksPerDayDisplay,
-            avgPickTimeDisplay,
-            exampleCadenceDisplay,
-            scaleSuffix,
-            devPer,
-            minerPer,
-            stakerPer,
-            commissionPer,
-            delegatorNetPer,
-            exampleDelegatorPer,
-            otherDelegatorsPer,
-            perFinalizerPer,
-          };
-        }
-
         function derive(currentState) {
           const pctShieldedStaked = clamp(currentState.pctShieldedStaked, 0, 100);
           const totalShieldedZec = currentState.TOTAL_SHIELDED_ZEC;
-          const finalizerWeight = clamp(currentState.finalizerWeight, 0, 1);
           const stakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
-          const finalizerStake = stakedZec * finalizerWeight;
           const rawDelegator = Number.isFinite(currentState.delegatorZec)
             ? currentState.delegatorZec
             : 0;
           const delegatorZec = Math.max(0, rawDelegator);
-          const userShareOfFinalizer =
-            finalizerStake > 0 ? clamp(delegatorZec / finalizerStake, 0, 1) : 0;
-
-          const estimates = computeEstimates(currentState, {
-            stakedZec,
-            finalizerStake,
-            delegatorZec,
-            userShareOfFinalizer,
-          });
-
-          const netDailyZec = estimates.perDayZec;
+          const commissionPct = clamp(currentState.commissionPct, 0, 100);
+          const netFactor = 1 - commissionPct / 100;
+          const rewardPerPick = ROUND_REWARD_ZEC * SHARE_STAKERS;
+          const userShareOfStake =
+            stakedZec > 0 ? clamp(delegatorZec / stakedZec, 0, 1) : 0;
+          const netDailyZec =
+            ROUNDS_PER_DAY * rewardPerPick * userShareOfStake * netFactor;
           const annualizedPct =
             delegatorZec > 0 ? (netDailyZec * DAYS_PER_YEAR / delegatorZec) * 100 : 0;
-          const coversFinalizer = finalizerStake > 0 && delegatorZec >= finalizerStake;
+          const coversStakedPool = stakedZec > 0 && delegatorZec >= stakedZec;
 
           return {
             totalShieldedZec,
             pctShieldedStaked,
             stakedZec,
-            finalizerWeight,
-            finalizerStake,
             delegatorZec,
-            userShareOfFinalizer,
+            delegationSharePct: userShareOfStake * 100,
             netDailyZec,
             annualizedPct,
-            coversFinalizer,
-            ...estimates,
+            coversStakedPool,
           };
         }
 
         function syncInputsFromState() {
-          finalizerWeightInput.value = state.finalizerWeight;
           pctStakedInput.value = state.pctShieldedStaked;
           commissionInput.value = state.commissionPct;
           delegatorInput.value = state.delegatorZec;
@@ -605,20 +351,18 @@
 
         function syncURL() {
           const params = new URLSearchParams();
-          params.set("p", state.finalizerWeight.toString());
+          params.set("p", "1");
           params.set("ps", state.pctShieldedStaked.toString());
           params.set("c", state.commissionPct.toString());
           const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
           const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-          const finalizerWeight = clamp(state.finalizerWeight, 0, 1);
-          const finalizerStake = stakedZec * finalizerWeight;
           const delegatorZec = Math.max(
             0,
             Number.isFinite(state.delegatorZec) ? state.delegatorZec : 0,
           );
           const sharePct =
-            finalizerStake > 0
-              ? clamp((delegatorZec / finalizerStake) * 100, 0, 100)
+            stakedZec > 0
+              ? clamp((delegatorZec / stakedZec) * 100, 0, 100)
               : 0;
           params.set("d", sharePct.toString());
           params.set("dz", delegatorZec.toString());
@@ -729,25 +473,13 @@
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
           summaryElements.stakedZec.textContent = fmtZec(derived.stakedZec);
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
-          summaryElements.finalizerPct.textContent = fmtPct(derived.finalizerWeight * 100);
-          summaryElements.finalizerStake.textContent = fmtZec(derived.finalizerStake);
+          summaryElements.delegationShare.textContent = fmtPct(derived.delegationSharePct);
           summaryElements.dailyYieldZec.textContent = fmtZec(derived.netDailyZec);
           summaryElements.annualizedPct.textContent = fmtPct(derived.annualizedPct);
           if (coverageNote) {
-            coverageNote.hidden = !derived.coversFinalizer;
+            coverageNote.hidden = !derived.coversStakedPool;
           }
 
-          fields["per-finalizer"].textContent = formatZecWithSuffix(derived.perFinalizerPer, derived.scaleSuffix);
-          fields["commission-per"].textContent = formatZecWithSuffix(derived.commissionPer, derived.scaleSuffix);
-          fields["delegator-net"].textContent = formatZecWithSuffix(derived.delegatorNetPer, derived.scaleSuffix);
-          fields["expected-picks"].textContent = derived.expectedPicksPerDayDisplay;
-          fields["example-share"].textContent = fmtPct(derived.userShareOfFinalizer * 100);
-          fields["example-payout"].textContent = formatZecWithSuffix(derived.exampleDelegatorPer, derived.scaleSuffix);
-          fields["example-cadence"].textContent = derived.exampleCadenceDisplay;
-          fields["other-delegators"].textContent = formatZecWithSuffix(derived.otherDelegatorsPer, derived.scaleSuffix);
-          fields["yield-per-round"].textContent = formatYield(derived.perRoundZec);
-          fields["yield-per-day"].textContent = formatYield(derived.perDayZec);
-          fields["yield-per-year"].textContent = formatYield(derived.perYearZec);
         }
 
         function propagateStateChange(options = {}) {
@@ -762,11 +494,12 @@
 
         function applyStateFromQuery() {
           const params = new URLSearchParams(window.location.search);
+          let queryFinalizerWeight = 1;
 
           if (params.has("p")) {
             const parsed = Number.parseFloat(params.get("p"));
             if (Number.isFinite(parsed)) {
-              state.finalizerWeight = clamp(parsed, 0, 1);
+              queryFinalizerWeight = clamp(parsed, 0, 1);
             }
           }
 
@@ -795,18 +528,11 @@
               const legacyPct = clamp(parsed, 0, 100);
               const pctStaked = clamp(state.pctShieldedStaked, 0, 100);
               const stakedZec = (state.TOTAL_SHIELDED_ZEC * pctStaked) / 100;
-              const finalizerWeight = clamp(state.finalizerWeight, 0, 1);
-              const finalizerStake = stakedZec * finalizerWeight;
+              const finalizerStake = stakedZec * queryFinalizerWeight;
               state.delegatorZec = (finalizerStake * legacyPct) / 100;
             }
           }
         }
-
-        attachNumberInputHandlers(finalizerWeightInput, {
-          min: 0,
-          max: 1,
-          stateKey: "finalizerWeight",
-        });
 
         attachNumberInputHandlers(pctStakedInput, {
           min: 0,

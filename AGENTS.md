@@ -1,12 +1,13 @@
 # AGENTS.md
 
 ## Repository Overview
-- Interactive Crosslink economics simulator delivered as a single static HTML document (`index.html`).
+- Interactive Crosslink economics simulator delivered as a single static HTML document (`public/index.html`).
 - Uses vanilla JavaScript and inline CSS with no external runtime dependencies.
 - No package.json, build tooling, or framework runtime; everything must continue to work when served as plain static assets.
+- UI currently includes the configuration form and textual summary only (Estimates and detailed metrics panels were removed).
 
 ## File Layout
-- `index.html`: Entry point containing markup, styles, and the full application script for state, derived metrics, and UI logic.
+- `public/index.html`: Entry point containing markup, styles, and the full application script for state, derived metrics, and UI logic.
 - `.github/workflows/deploy.yml`: GitHub Pages deployment pipeline that uploads `index.html` on pushes to `main`.
 - `AGENTS.md`: This guidance file. Update this first when repo assumptions change.
 
@@ -19,14 +20,14 @@
 - Fixed economic inputs (matching code defaults):
   - `roundReward = 1.5625` ZEC per round.
   - `roundsPerDay = 1152` (≈75s round cadence).
-  - `shareDev = 0.20`, `shareMiners = 0.40`, `shareStakers = 0.40`.
+  - `shareStakers = 0.40` of each round's reward is assumed to flow to stakers (other protocol splits are informational only in this UI).
 - Adjustable controls (state keys → UI inputs):
   - `finalizerWeight`: numeric input (0–1).
   - `pctShieldedStaked`: numeric input (0–100).
   - `commissionPct`: numeric input (0–100).
   - `delegatorZec`: numeric input (≥0) representing the delegator's stake in ZEC.
 - Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, selection probability 0.01 (1%), 10% commission, 60 ZEC delegation (≈2% of the default finalizer stake), 10% of shielded pool staked.
-- Derived relationships shared by the summary, Estimates, and metrics panels:
+- Derived relationships powering the summary copy:
   - `totalStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
   - `finalizerStakeZec = totalStakedZec × finalizerWeight`
   - `userShareOfFinalizer = finalizerStakeZec > 0 ? clamp(delegatorZec / finalizerStakeZec, 0, 1) : 0`
@@ -40,8 +41,7 @@
 
 ## Application Architecture
 - Simple state container (`state`) backed by helper functions:
-  - `derive(state)` centralizes domain math, including shielded staking assumptions.
-  - `computeEstimates()` hosts the reward math that powers the Estimates panel, summary copy, and supporting metrics.
+  - `derive(state)` centralizes domain math, including shielded staking assumptions and net reward projections.
   - `propagateStateChange()` handles recalculation, DOM updates, optional input syncing, and URL serialization.
 - Event handling:
   - Inputs use `attachNumberInputHandlers` to clamp values, defer parsing while the user types, and trigger re-rendering.
@@ -81,7 +81,7 @@
 
 ## Testing & Verification Checklist
 - Manually test form inputs at boundary values (0, 1, 100) to confirm clamping logic.
-- Confirm the summary copy and Estimates panel stay in sync when any input changes.
+- Confirm the summary copy updates when any input changes.
 - Verify URL sharing:
   1. Adjust parameters.
   2. Click "Copy link to scenario" (ensure clipboard success message appears).
