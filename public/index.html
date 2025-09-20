@@ -371,6 +371,7 @@
                 <div class="control-advanced" data-control="pct-staked" hidden>
                   <input id="pctStakedSlider" type="range" min="0" max="100" step="0.1" aria-label="Percent of shielded pool staked">
                 </div>
+                <small id="pctStakedWarning" class="inline-note warning-note" hidden></small>
               </div>
 
               <div class="field">
@@ -515,6 +516,7 @@
           annualizedPct: document.getElementById("sumAnnualizedPct"),
         };
         const coverageNote = document.getElementById("delegatorCoverageNote");
+        const pctStakedWarning = document.getElementById("pctStakedWarning");
         let isAdvancedMode = false;
         let initialAdvancedMode = false;
 
@@ -727,6 +729,30 @@
           };
         }
 
+        function applyPctStakedWarning(derived) {
+          const slider = advancedControls.pctSlider;
+          const value = Number.isFinite(derived?.pctShieldedStaked)
+            ? derived.pctShieldedStaked
+            : Number.NaN;
+          const isTooLow = isAdvancedMode && Number.isFinite(value) && value < 10;
+          const isTooHigh = isAdvancedMode && Number.isFinite(value) && value > 70;
+          if (slider) {
+            slider.classList.toggle("warning", isTooLow || isTooHigh);
+          }
+          if (!pctStakedWarning) return;
+          if (isTooLow) {
+            pctStakedWarning.textContent = "Warning: Staking Centralization Risk.";
+            pctStakedWarning.hidden = false;
+            return;
+          }
+          if (isTooHigh) {
+            pctStakedWarning.textContent = "Warning: Potential Privacy leakage";
+            pctStakedWarning.hidden = false;
+            return;
+          }
+          pctStakedWarning.hidden = true;
+        }
+
         function syncInputsFromState() {
           syncPillGroupsFromState();
         }
@@ -821,6 +847,7 @@
           if (coverageNote) {
             coverageNote.hidden = !derived.coversStakedPool;
           }
+          applyPctStakedWarning(derived);
         }
 
         function propagateStateChange(options = {}) {
@@ -903,6 +930,7 @@
           }
 
           syncPillGroupsFromState();
+          applyPctStakedWarning(derive(state));
         }
 
         if (advancedToggle) {
