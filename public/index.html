@@ -57,18 +57,14 @@
         color: var(--muted);
         line-height: 1.5;
       }
-      .page-header-actions {
-        display: flex;
-        align-items: flex-start;
-      }
-      .page-header-actions button {
-        white-space: nowrap;
-      }
       header p strong,
       .accent {
         color: var(--accent);
       }
       .accent,
+      .summary-strong {
+        font-weight: 600;
+      }
       .summary-strong {
         font-weight: 600;
       }
@@ -87,6 +83,13 @@
         color: var(--muted);
         font-size: 1.5rem;
         line-height: 1.6;
+      }
+      .summary-share {
+        margin-top: 0.75rem;
+      }
+      .summary-share button {
+        white-space: nowrap;
+        font-size: 0.95rem;
       }
       .simulator-disclaimer {
         margin: 1.25rem 0 0;
@@ -113,6 +116,66 @@
       .field {
         display: grid;
         gap: 0.35rem;
+      }
+      .field-set {
+        border: 0;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 1.35rem;
+      }
+      .pill-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .pill {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(148, 163, 184, 0.12);
+        color: var(--text);
+        padding: 0.32rem 0.7rem;
+        border-radius: 999px;
+        font: inherit;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .pill:hover {
+        background: rgba(148, 163, 184, 0.22);
+      }
+      .pill:active {
+        transform: scale(0.97);
+      }
+      .pill.selected {
+        background: var(--accent);
+        color: var(--surface-alt);
+        border-color: transparent;
+      }
+      .pill-badge {
+        border-color: rgba(74, 222, 128, 0.35);
+      }
+      .pill-badge.selected {
+        box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.4) inset;
+      }
+      .control-standard[hidden],
+      .control-advanced[hidden] {
+        display: none !important;
+      }
+      .control-advanced {
+        margin-top: 0.5rem;
+      }
+      .control-advanced input[type="range"] {
+        width: 100%;
+        display: block;
+      }
+      .simulator-footer {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: var(--muted);
       }
       .selection-dynamics {
         display: grid;
@@ -205,6 +268,19 @@
         gap: 0.75rem;
         margin-top: 0.5rem;
       }
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.92rem;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .toggle input[type="checkbox"] {
+        width: 1.1rem;
+        height: 1.1rem;
+        cursor: pointer;
+      }
       .visually-hidden {
         position: absolute !important;
         width: 1px;
@@ -230,9 +306,6 @@
           <h1>Crosslink Economics Simulator</h1>
           <p>The Crosslink v1 economics, demonstrated simply.</p>
         </div>
-        <div class="page-header-actions">
-          <button type="button" id="copy-link-button">🔗 Share scenario</button>
-        </div>
       </header>
 
       <div class="panel-intro">
@@ -248,47 +321,110 @@
               <li>or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.</li>
             </ul>
           </p>
+          <div class="summary-share">
+            <button type="button" id="copy-link-button">🔗 Share scenario</button>
+          </div>
           <p class="simulator-disclaimer">
             This simulator provides illustrative estimates only. It is not investment, financial, or legal advice, and real-world outcomes may differ.
           </p>
+          <div class="simulator-footer">
+            <span>Simulator version 1.2</span>
+          </div>
         </div>
         <div style="display: none">
           Including your delegation, total staked comes to <span id="sumTotalStakedZec" class="summary-strong"></span> ZEC.
           (~<span id="sumStakedZec" class="summary-strong"></span> ZEC before your delegation)
           <span id="commission" class="accent"></span>%
         </div>
-        <section class="panel">
-          <h2>Configure Scenario</h2>
-          <form class="controls" id="controls" autocomplete="off">
-            <fieldset>
+        <form class="controls" id="controls" autocomplete="off">
+          <section class="panel" aria-labelledby="configure-heading">
+            <h2 id="configure-heading">Configure Scenario</h2>
+            <fieldset class="field-set">
+              <legend class="visually-hidden">Scenario controls</legend>
               <div class="field">
-                <label for="inputPctStaked" title="What portion of all shielded ZEC participates in staking?">% of shielded pool staked</label>
-                <input id="inputPctStaked" name="pct-staked" type="range" min="0" max="100" step="0.1">
-                <small id="pctStakedWarning" class="inline-note warning-note" hidden>Warning: Staking Centralization Risk</small>
+                <label>Orchard size (ZEC)</label>
+                <div class="control-standard" data-control="orchard">
+                  <div class="pill-group" role="group" aria-label="Orchard pool amount">
+                    <button type="button" class="pill" data-value="3000000">3M</button>
+                    <button type="button" class="pill" data-value="4000000">4M</button>
+                    <button type="button" class="pill" data-value="5000000">5M</button>
+                    <button type="button" class="pill" data-value="7500000">7.5M</button>
+                    <button type="button" class="pill" data-value="10000000">10M</button>
+                  </div>
+                </div>
+                <div class="control-advanced" data-control="orchard" hidden>
+                  <input id="orchardInput" type="number" min="3000000" step="1" inputmode="decimal" aria-label="Custom Orchard pool amount">
+                </div>
               </div>
+
               <div class="field">
-                <label for="commissionInput">Finalizer Commission (%)</label>
-                <input id="commissionInput" name="commission" type="number" min="0" max="100" step="0.1" inputmode="decimal">
+                <label>% of shielded pool staked</label>
+                <div class="control-standard" data-control="pct-staked">
+                  <div class="pill-group" role="group" aria-label="Percent of shielded ZEC staked">
+                    <button type="button" class="pill pill-badge" data-value="30"><span>30%</span></button>
+                    <button type="button" class="pill pill-badge" data-value="40"><span>40%</span></button>
+                    <button type="button" class="pill pill-badge" data-value="50"><span>50%</span></button>
+                    <button type="button" class="pill pill-badge" data-value="60"><span>60%</span></button>
+                    <button type="button" class="pill pill-badge" data-value="70"><span>70%</span></button>
+                  </div>
+                </div>
+                <div class="control-advanced" data-control="pct-staked" hidden>
+                  <input id="pctStakedSlider" type="range" min="0" max="100" step="0.1" aria-label="Percent of shielded pool staked">
+                </div>
               </div>
+
               <div class="field">
-                <label for="delegator">Your Delegation (ZEC)</label>
-                <select id="delegator" name="delegator">
-                  <option value="0.1">0.1 ZEC</option>
-                  <option value="1">1 ZEC</option>
-                  <option value="10">10 ZEC</option>
-                  <option value="100">100 ZEC</option>
-                  <option value="1000">1,000 ZEC</option>
-                  <option value="10000">10,000 ZEC</option>
-                  <option value="100000">100,000 ZEC</option>
-                </select>
+                <label>Your delegation (ZEC)</label>
+                <div class="control-standard" data-control="delegator">
+                  <div class="pill-group" role="group" aria-label="Your delegation amount">
+                    <button type="button" class="pill" data-value="0.1">0.1</button>
+                    <button type="button" class="pill" data-value="1">1</button>
+                    <button type="button" class="pill" data-value="10">10</button>
+                    <button type="button" class="pill" data-value="100">100</button>
+                    <button type="button" class="pill" data-value="1000">1k</button>
+                    <button type="button" class="pill" data-value="10000">10k</button>
+                    <button type="button" class="pill" data-value="100000">100k</button>
+                  </div>
+                </div>
+                <div class="control-advanced" data-control="delegator" hidden>
+                  <select id="delegatorSelect" aria-label="Delegation amount">
+                    <option value="0.1">0.1 ZEC</option>
+                    <option value="1">1 ZEC</option>
+                    <option value="10">10 ZEC</option>
+                    <option value="100">100 ZEC</option>
+                    <option value="1000">1,000 ZEC</option>
+                    <option value="10000">10,000 ZEC</option>
+                    <option value="100000">100,000 ZEC</option>
+                  </select>
+                </div>
                 <small id="delegatorCoverageNote" class="inline-note" hidden>You now match the entire staked pool.</small>
               </div>
+
+              <div class="field">
+                <label>Finalizer commission (%)</label>
+                <div class="control-standard" data-control="commission">
+                  <div class="pill-group" role="group" aria-label="Finalizer commission">
+                    <button type="button" class="pill" data-value="5">5%</button>
+                    <button type="button" class="pill" data-value="10">10%</button>
+                    <button type="button" class="pill" data-value="15">15%</button>
+                    <button type="button" class="pill" data-value="20">20%</button>
+                  </div>
+                </div>
+                <div class="control-advanced" data-control="commission" hidden>
+                  <input id="commissionInputAdvanced" type="number" min="0" max="100" step="0.01" inputmode="decimal" aria-label="Finalizer commission percentage">
+                </div>
+              </div>
+
               <div class="button-row">
                 <button type="button" id="reset-button">Reset to defaults</button>
+                <label class="toggle">
+                  <input type="checkbox" id="advancedToggle">
+                  <span>Advanced mode</span>
+                </label>
               </div>
             </fieldset>
-          </form>
-        </section>
+          </section>
+        </form>
       </div>
 
     </main>
@@ -299,11 +435,12 @@
         const ROUNDS_PER_DAY = 1152;
         const DAYS_PER_YEAR = 365;
         const SHARE_STAKERS = 0.40;
-        const TOTAL_SHIELDED_ZEC = 3_000_000;
+        const DEFAULT_TOTAL_SHIELDED_ZEC = 3_000_000;
         const REWARD_PER_DAY = ROUND_REWARD_ZEC * SHARE_STAKERS * ROUNDS_PER_DAY;
         const DELEGATION_LEVELS = [0.1, 1, 10, 100, 1_000, 10_000, 100_000];
 
         const DEFAULTS = {
+          totalShieldedZec: DEFAULT_TOTAL_SHIELDED_ZEC,
           commissionPct: 10,
           delegatorZec: DELEGATION_LEVELS[2],
           pctShieldedStaked: 50,
@@ -322,10 +459,48 @@
           minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         });
-        const pctStakedInput = document.getElementById("inputPctStaked");
-        const commissionInput = document.getElementById("commissionInput");
-        const delegatorInput = document.getElementById("delegator");
+        const dailyZecFormatter = new Intl.NumberFormat(undefined, {
+          maximumSignificantDigits: 4,
+        });
+        const annualZecFormatter = new Intl.NumberFormat(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 3,
+        });
+        const pctYieldFormatter = new Intl.NumberFormat(undefined, {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 2,
+        });
+        const pillGroups = {
+          orchard: {
+            key: "totalShieldedZec",
+            presets: [3_000_000, 4_000_000, 5_000_000, 7_500_000, 10_000_000],
+            min: DEFAULT_TOTAL_SHIELDED_ZEC,
+            buttons: Array.from(document.querySelectorAll('.control-standard[data-control="orchard"] .pill')),
+          },
+          pctStaked: {
+            key: "pctShieldedStaked",
+            presets: [30, 40, 50, 60, 70],
+            buttons: Array.from(document.querySelectorAll('.control-standard[data-control="pct-staked"] .pill')),
+          },
+          delegator: {
+            key: "delegatorZec",
+            presets: [...DELEGATION_LEVELS],
+            buttons: Array.from(document.querySelectorAll('.control-standard[data-control="delegator"] .pill')),
+          },
+          commission: {
+            key: "commissionPct",
+            presets: [5, 10, 15, 20],
+            buttons: Array.from(document.querySelectorAll('.control-standard[data-control="commission"] .pill')),
+          },
+        };
         const resetButton = document.getElementById("reset-button");
+        const advancedToggle = document.getElementById("advancedToggle");
+        const advancedControls = {
+          orchardInput: document.getElementById("orchardInput"),
+          pctSlider: document.getElementById("pctStakedSlider"),
+          delegatorSelect: document.getElementById("delegatorSelect"),
+          commissionInput: document.getElementById("commissionInputAdvanced"),
+        };
         const copyLinkButton = document.getElementById("copy-link-button");
 
         const summaryElements = {
@@ -340,7 +515,8 @@
           annualizedPct: document.getElementById("sumAnnualizedPct"),
         };
         const coverageNote = document.getElementById("delegatorCoverageNote");
-        const pctStakedWarningNote = document.getElementById("pctStakedWarning");
+        let isAdvancedMode = false;
+        let initialAdvancedMode = false;
 
         function clamp(value, min, max = Number.POSITIVE_INFINITY) {
           if (!Number.isFinite(value)) return min;
@@ -351,7 +527,9 @@
           if (!Number.isFinite(rawValue)) return false;
           let next = rawValue;
           if (key === "delegatorZec") {
-            next = snapDelegationValue(Math.max(0, next));
+            next = Math.max(0, next);
+          } else if (key === "totalShieldedZec") {
+            next = clamp(next, DEFAULT_TOTAL_SHIELDED_ZEC);
           } else if (key === "pctShieldedStaked" || key === "commissionPct") {
             next = clamp(next, 0, 100);
           }
@@ -379,23 +557,153 @@
           return pctFormatter.format(rounded);
         }
 
-        function snapDelegationValue(value) {
-          if (!Number.isFinite(value)) {
-            return DELEGATION_LEVELS[0];
-          }
-          let closest = DELEGATION_LEVELS[0];
-          for (const level of DELEGATION_LEVELS) {
-            if (Math.abs(value - level) < Math.abs(value - closest)) {
-              closest = level;
+        function fmtDailyZec(value) {
+          if (!Number.isFinite(value)) return "–";
+          return dailyZecFormatter.format(value);
+        }
+
+        function fmtAnnualZec(value) {
+          if (!Number.isFinite(value)) return "–";
+          return annualZecFormatter.format(value);
+        }
+
+        function fmtPctYield(value) {
+          if (!Number.isFinite(value)) return "–";
+          return pctYieldFormatter.format(value);
+        }
+
+        const VALUE_EPSILON = 1e-9;
+
+        function isPresetMatch(group, value) {
+          return Number.isFinite(value)
+            && Array.isArray(group.presets)
+            && group.presets.some((preset) => Math.abs(preset - value) < VALUE_EPSILON);
+        }
+
+        function syncDelegatorSelect(value) {
+          const select = document.getElementById("delegatorSelect");
+          if (!select) return;
+          const options = Array.from(select.options);
+          let matched = false;
+          for (const option of options) {
+            const numeric = Number.parseFloat(option.value);
+            if (Number.isFinite(numeric) && Math.abs(numeric - value) < VALUE_EPSILON) {
+              select.value = option.value;
+              matched = true;
+              break;
             }
           }
-          return closest;
+          if (!matched) {
+            select.value = options[0]?.value ?? "";
+          }
+        }
+
+        function syncPillGroupSelection(group, value) {
+          if (!group) return;
+          const matchesPreset = isPresetMatch(group, value);
+          group.buttons.forEach((button) => {
+            const numeric = Number.parseFloat(button.dataset.value);
+            const isSelected = matchesPreset && Number.isFinite(value) && Math.abs(numeric - value) < VALUE_EPSILON;
+            button.classList.toggle("selected", isSelected);
+            button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+          });
+        }
+
+        function syncPillGroupsFromState() {
+          for (const group of Object.values(pillGroups)) {
+            syncPillGroupSelection(group, state[group.key]);
+          }
+          if (advancedControls.delegatorSelect) {
+            syncDelegatorSelect(state.delegatorZec);
+          }
+          if (advancedControls.pctSlider) {
+            advancedControls.pctSlider.value = Number.isFinite(state.pctShieldedStaked)
+              ? `${state.pctShieldedStaked}`
+              : "0";
+          }
+          if (advancedControls.orchardInput) {
+            advancedControls.orchardInput.value = Number.isFinite(state.totalShieldedZec)
+              ? `${state.totalShieldedZec}`
+              : `${DEFAULT_TOTAL_SHIELDED_ZEC}`;
+          }
+          if (advancedControls.commissionInput) {
+            advancedControls.commissionInput.value = Number.isFinite(state.commissionPct)
+              ? state.commissionPct.toFixed(2)
+              : "0.00";
+          }
+        }
+
+        function attachPillInteractions(group) {
+          if (!group) return;
+          group.buttons.forEach((button) => {
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+              if (isAdvancedMode) return;
+              const numeric = Number.parseFloat(button.dataset.value);
+              const changed = updateState(group.key, numeric);
+              if (changed) {
+                propagateStateChange();
+              } else {
+                syncPillGroupsFromState();
+              }
+            });
+          });
+        }
+
+        if (advancedControls.orchardInput) {
+          advancedControls.orchardInput.addEventListener("input", () => {
+            const parsed = Number.parseFloat(advancedControls.orchardInput.value);
+            if (!Number.isFinite(parsed)) return;
+            const changed = updateState("totalShieldedZec", parsed);
+            if (changed) {
+              propagateStateChange();
+            }
+          });
+          advancedControls.orchardInput.addEventListener("blur", () => {
+            advancedControls.orchardInput.value = `${state.totalShieldedZec}`;
+          });
+        }
+
+        if (advancedControls.pctSlider) {
+          const syncSlider = () => {
+            if (updateState("pctShieldedStaked", advancedControls.pctSlider.valueAsNumber)) {
+              propagateStateChange();
+            }
+          };
+          advancedControls.pctSlider.addEventListener("input", syncSlider);
+          advancedControls.pctSlider.addEventListener("change", syncSlider);
+        }
+
+        if (advancedControls.delegatorSelect) {
+          advancedControls.delegatorSelect.addEventListener("change", () => {
+            const parsed = Number.parseFloat(advancedControls.delegatorSelect.value);
+            if (!Number.isFinite(parsed)) return;
+            if (updateState("delegatorZec", parsed)) {
+              propagateStateChange();
+            } else {
+              syncPillGroupsFromState();
+            }
+          });
+        }
+
+        if (advancedControls.commissionInput) {
+          const handleCommissionInput = () => {
+            const parsed = Number.parseFloat(advancedControls.commissionInput.value);
+            if (!Number.isFinite(parsed)) return;
+            if (updateState("commissionPct", parsed)) {
+              propagateStateChange();
+            }
+          };
+          advancedControls.commissionInput.addEventListener("input", handleCommissionInput);
+          advancedControls.commissionInput.addEventListener("blur", () => {
+            advancedControls.commissionInput.value = `${state.commissionPct.toFixed(2)}`;
+          });
         }
 
         function derive(currentState) {
           const pctShieldedStaked = currentState.pctShieldedStaked;
           const delegatorZec = currentState.delegatorZec;
-          const totalShieldedZec = TOTAL_SHIELDED_ZEC;
+          const totalShieldedZec = currentState.totalShieldedZec ?? DEFAULT_TOTAL_SHIELDED_ZEC;
           const stakedZec = (totalShieldedZec * pctShieldedStaked) / 100;
           const totalStakedZec = stakedZec + delegatorZec;
           const netFactor = 1 - currentState.commissionPct / 100;
@@ -420,11 +728,7 @@
         }
 
         function syncInputsFromState() {
-          pctStakedInput.value = `${state.pctShieldedStaked}`;
-          commissionInput.value = `${state.commissionPct}`;
-          if (delegatorInput) {
-            delegatorInput.value = `${state.delegatorZec}`;
-          }
+          syncPillGroupsFromState();
         }
 
         function syncURL(derived) {
@@ -432,6 +736,12 @@
           url.searchParams.set("ps", state.pctShieldedStaked.toString());
           url.searchParams.set("c", state.commissionPct.toString());
           url.searchParams.set("dz", derived.delegatorZec.toString());
+          url.searchParams.set("ts", derived.totalShieldedZec.toString());
+          if (isAdvancedMode) {
+            url.searchParams.set("adv", "1");
+          } else {
+            url.searchParams.delete("adv");
+          }
           const next = `${url.pathname}${url.search}${url.hash}`;
           const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
           if (next !== current) {
@@ -492,7 +802,11 @@
         }
 
         function render(derived) {
+          syncPillGroupsFromState();
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
+          if (summaryElements.totalShielded) {
+            summaryElements.totalShielded.title = `${fmtZec(derived.totalShieldedZec)} ZEC`;
+          }
           summaryElements.pctStaked.textContent = fmtPct(derived.pctShieldedStaked);
           if (summaryElements.pctStaked) {
             summaryElements.pctStaked.title = `${fmtZec(derived.stakedZec)} ZEC`;
@@ -501,27 +815,11 @@
           summaryElements.totalStakedZec.textContent = fmtZec(derived.totalStakedZec);
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
           summaryElements.commission.textContent = fmtPct(derived.commissionPct);
-          summaryElements.dailyYieldZec.textContent = fmtZec(derived.netDailyZec);
-          summaryElements.annualYieldZec.textContent = fmtZec(derived.netAnnualZec);
-          summaryElements.annualizedPct.textContent = fmtPct(derived.annualizedPct);
-          updatePctStakedWarning(derived.pctShieldedStaked);
+          summaryElements.dailyYieldZec.textContent = `≈${fmtDailyZec(derived.netDailyZec)}`;
+          summaryElements.annualYieldZec.textContent = `≈${fmtAnnualZec(derived.netAnnualZec)}`;
+          summaryElements.annualizedPct.textContent = `≈${fmtPctYield(derived.annualizedPct)}`;
           if (coverageNote) {
             coverageNote.hidden = !derived.coversStakedPool;
-          }
-        }
-
-        function updatePctStakedWarning(value) {
-          const lowStaked = value <= 10;
-          const highStaked = value > 70;
-          const warningActive = lowStaked || highStaked;
-          pctStakedInput.classList.toggle("warning", warningActive);
-          if (pctStakedWarningNote) {
-            pctStakedWarningNote.hidden = !warningActive;
-            if (warningActive) {
-              pctStakedWarningNote.textContent = lowStaked
-                ? "Warning: Staking Centralization Risk"
-                : "Important: Potential Privacy leakage";
-            }
           }
         }
 
@@ -540,47 +838,41 @@
         function applyStateFromQuery() {
           const params = new URLSearchParams(window.location.search);
 
+          initialAdvancedMode = false;
+
+          updateState("totalShieldedZec", Number.parseFloat(params.get("ts") ?? ""));
           updateState("pctShieldedStaked", Number.parseFloat(params.get("ps") ?? ""));
           updateState("commissionPct", Number.parseFloat(params.get("c") ?? ""));
 
-          if (params.has("dz")) {
-            updateState("delegatorZec", Number.parseFloat(params.get("dz")));
+          const dzParam = params.get("dz");
+          if (dzParam !== null) {
+            const parsedDz = Number.parseFloat(dzParam);
+            const isPreset = DELEGATION_LEVELS.some((preset) => Number.isFinite(parsedDz) && Math.abs(preset - parsedDz) < VALUE_EPSILON);
+            if (isPreset) {
+              updateState("delegatorZec", parsedDz);
+            } else {
+              updateState("delegatorZec", DEFAULTS.delegatorZec);
+            }
+          }
+
+          const advParam = params.get("adv");
+          if (advParam !== null) {
+            const normalized = advParam.trim().toLowerCase();
+            initialAdvancedMode = normalized === "1" || normalized === "true";
           }
         }
 
-        pctStakedInput.addEventListener("input", () => {
-          if (updateState("pctShieldedStaked", pctStakedInput.valueAsNumber)) {
-            propagateStateChange();
-          }
-        });
-
-        commissionInput.addEventListener("input", () => {
-          if (updateState("commissionPct", commissionInput.valueAsNumber)) {
-            propagateStateChange();
-            commissionInput.value = state.commissionPct;
-          }
-        });
-
-        commissionInput.addEventListener("blur", () => {
-          if (!Number.isFinite(commissionInput.valueAsNumber)) {
-            commissionInput.value = state.commissionPct;
-          }
-        });
-
-        if (delegatorInput) {
-          delegatorInput.addEventListener("change", () => {
-            const parsed = Number.parseFloat(delegatorInput.value);
-            const changed = updateState("delegatorZec", parsed);
-            delegatorInput.value = `${state.delegatorZec}`;
-            if (changed) {
-              propagateStateChange();
-            }
-          });
+        for (const group of Object.values(pillGroups)) {
+          attachPillInteractions(group);
         }
 
         resetButton.addEventListener("click", () => {
           Object.assign(state, DEFAULTS);
-          propagateStateChange({ syncInputs: true });
+          const derived = propagateStateChange({ syncInputs: true });
+          if (advancedToggle) {
+            toggleAdvancedMode(false);
+          }
+          syncURL(derived);
         });
 
         if (copyLinkButton) {
@@ -591,8 +883,38 @@
           });
         }
 
+        function toggleAdvancedMode(forceState) {
+          const nextState = typeof forceState === "boolean" ? forceState : !isAdvancedMode;
+          if (isAdvancedMode === nextState) return;
+          isAdvancedMode = nextState;
+          const form = document.getElementById("controls");
+          if (!form) return;
+          form.classList.toggle("advanced", isAdvancedMode);
+          if (advancedToggle && advancedToggle.checked !== isAdvancedMode) {
+            advancedToggle.checked = isAdvancedMode;
+          }
+
+          const controlKeys = ["orchard", "pct-staked", "delegator", "commission"];
+          for (const key of controlKeys) {
+            const standard = form.querySelector(`.control-standard[data-control="${key}"]`);
+            const advanced = form.querySelector(`.control-advanced[data-control="${key}"]`);
+            if (standard) standard.hidden = isAdvancedMode;
+            if (advanced) advanced.hidden = !isAdvancedMode;
+          }
+
+          syncPillGroupsFromState();
+        }
+
+        if (advancedToggle) {
+          advancedToggle.addEventListener("change", () => {
+            toggleAdvancedMode(advancedToggle.checked);
+            syncURL(derive(state));
+          });
+        }
+
         applyStateFromQuery();
         const initialDerived = propagateStateChange({ syncInputs: true, skipURL: true });
+        toggleAdvancedMode(initialAdvancedMode);
         syncURL(initialDerived);
       })();
     </script>
