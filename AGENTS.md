@@ -22,9 +22,10 @@
   - `roundsPerDay = 1152` (≈75s round cadence).
   - `shareStakers = 0.40` of each round's reward is assumed to flow to stakers (other protocol splits are informational only in this UI).
 - Adjustable controls (state keys → UI inputs):
-  - `pctShieldedStaked`: numeric input (0–100).
-  - `commissionPct`: numeric input (0–100).
-- `delegatorZec`: dropdown selecting quantized delegation amounts (0.1 → 100,000 ZEC).
+  - `totalShieldedZec`: pill group (3M → 10M) representing the Orchard pool size, clamped to ≥3,000,000 ZEC.
+  - `pctShieldedStaked`: pill group (30–70%) with mid-range options subtly highlighted.
+  - `delegatorZec`: pill group using the quantised presets (0.1 → 100,000 ZEC) with abbreviated large values (1k/10k/100k).
+  - `commissionPct`: pill group (5–20%).
 - Defaults (`DEFAULTS` object in `index.html`): 3,000,000 ZEC total shielded, 10% commission, 10 ZEC delegation, 50% of the shielded pool staked.
 - Derived relationships powering the summary copy:
   - `baselineStakedZec = totalShieldedZec × (pctShieldedStaked / 100)`
@@ -42,20 +43,23 @@
   - `derive(state)` centralizes domain math, including shielded staking assumptions and net reward projections.
   - `propagateStateChange()` handles recalculation, DOM updates, optional input syncing, and URL serialization.
 - Event handling:
-  - Range and number inputs bind directly to `updateState` so clamping happens centrally before re-render.
-  - Delegation is selected from a dropdown of quantized ZEC amounts (0.1 → 100,000); `snapDelegationValue` keeps query params and state aligned with the allowed steps.
+  - Pill groups share a common interaction helper that toggles selection and routes sanitized values through `updateState`.
+  - The “Advanced mode” toggle swaps the pill groups for numeric controls (slider/inputs/select); both control sets stay in sync through the same state helpers.
   - `reset-button` restores `DEFAULTS`. `copy-link-button` copies the current URL (with scenario parameters) to the clipboard, falling back to `document.execCommand` when needed.
-  - When the delegator amount meets or exceeds the baseline staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation input.
+  - When the delegator amount meets or exceeds the baseline staked pool, `derive` clamps the share to 100% and `render` unhides the inline coverage note under the delegation group.
 - Formatting helpers rely on `Intl.NumberFormat` instances; keep locale-agnostic formatting unless a new requirement demands otherwise.
 
 ## URL Parameters & Deep Linking
 - Query params share state for bookmarking/sharing:
+  - `adv`: advanced mode flag (`1` when the advanced controls are shown).
+  - `ts`: total Orchard pool ZEC (`totalShieldedZec`, ≥3,000,000).
   - `ps`: percent of shielded pool staked (`pctShieldedStaked`, 0–100).
   - `c`: commission percent (`commissionPct`, 0–100).
   - `dz`: delegator amount in ZEC (`delegatorZec`, ≥0).
+    - Values outside the supported presets (0.1 → 100,000 ZEC) are ignored and the default delegation is used.
 - Legacy `d` share parameter has been removed; only `dz` is supported going forward.
-  - `applyStateFromQuery()` hydrates state on load using the `dz` amount when present, falling back to defaults otherwise.
-  - `syncURL()` writes `dz` when state changes.
+  - `applyStateFromQuery()` hydrates state on load using the available params, falling back to defaults otherwise.
+  - `syncURL()` writes all active parameters when state changes.
 
 ## Styling & Accessibility Notes
 - Dark-first palette defined in CSS `:root`.
