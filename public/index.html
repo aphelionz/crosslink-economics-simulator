@@ -442,7 +442,7 @@
                 </div>
               </div>
 
-              <div class="field advanced-only" data-advanced-control="zec-price" hidden>
+              <div class="field advanced-only" data-advanced-control="zec-price">
                 <label for="zecPriceInput">USD price per ZEC</label>
                 <input
                   id="zecPriceInput"
@@ -486,7 +486,7 @@
         const DEFAULTS = {
           totalShieldedZec: DEFAULT_TOTAL_SHIELDED_ZEC,
           commissionPct: 10,
-          delegatorZec: DELEGATION_LEVELS[2],
+          delegatorZec: DELEGATION_LEVELS[3],
           pctShieldedStaked: 50,
           zecPriceUsd: Number.NaN,
         };
@@ -1119,11 +1119,6 @@
             if (standard) standard.hidden = isAdvancedMode;
             if (advanced) advanced.hidden = !isAdvancedMode;
           }
-
-          const advancedOnly = form.querySelectorAll("[data-advanced-control]");
-          advancedOnly.forEach((element) => {
-            element.hidden = !isAdvancedMode;
-          });
 
           syncInputsFromState();
           applyPctStakedWarning(derive(state));
