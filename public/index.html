@@ -188,6 +188,12 @@
         width: 100%;
         display: block;
       }
+      .controls [data-advanced-control] {
+        display: none;
+      }
+      .controls.advanced [data-advanced-control] {
+        display: grid;
+      }
       .simulator-footer {
         margin-top: 1rem;
         font-size: 0.85rem;
@@ -336,7 +342,7 @@
             and earn roughly:
             <ul>
               <li><span id="sumDailyYieldZec" class="accent summary-strong"></span> ZEC per day</li>
-              <li><span id="sumAnnualYieldZec" class="accent summary-strong"></span> ZEC per year</li>
+              <li><abbr id="sumAnnualYieldZec" class="accent summary-strong" title=""></abbr> ZEC per year</li>
               <li>or about <span id="sumAnnualizedPct" class="accent summary-strong"></span>% annualized.</li>
             </ul>
           </p>
@@ -436,6 +442,21 @@
                 </div>
               </div>
 
+              <div class="field advanced-only" data-advanced-control="zec-price" hidden>
+                <label for="zecPriceInput">USD price per ZEC</label>
+                <input
+                  id="zecPriceInput"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputmode="decimal"
+                  aria-label="USD price per ZEC"
+                >
+                <small class="inline-note" id="zecPriceSourceNote">
+                  Updates every minute. Override if you prefer a custom value.
+                </small>
+              </div>
+
               <div class="button-row">
                 <button type="button" id="reset-button">Reset to defaults</button>
                 <label class="toggle">
@@ -459,12 +480,15 @@
         const DEFAULT_TOTAL_SHIELDED_ZEC = 3_000_000;
         const REWARD_PER_DAY = ROUND_REWARD_ZEC * SHARE_STAKERS * ROUNDS_PER_DAY;
         const DELEGATION_LEVELS = [0.1, 1, 10, 100, 1_000, 10_000, 100_000];
+        const ZEC_PRICE_ENDPOINT = "https://api.blockchair.com/zcash/stats?fields=market_price_usd";
+        const PRICE_REFRESH_INTERVAL_MS = 60_000;
 
         const DEFAULTS = {
           totalShieldedZec: DEFAULT_TOTAL_SHIELDED_ZEC,
           commissionPct: 10,
           delegatorZec: DELEGATION_LEVELS[2],
           pctShieldedStaked: 50,
+          zecPriceUsd: Number.NaN,
         };
 
         const state = { ...DEFAULTS };
@@ -490,6 +514,16 @@
         const pctYieldFormatter = new Intl.NumberFormat(undefined, {
           minimumFractionDigits: 1,
           maximumFractionDigits: 2,
+        });
+        const usdFormatter = new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        });
+        const timeFormatter = new Intl.DateTimeFormat(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
         });
         const pillGroups = {
           orchard: {
@@ -521,8 +555,10 @@
           pctSlider: document.getElementById("pctStakedSlider"),
           delegatorSelect: document.getElementById("delegatorSelect"),
           commissionInput: document.getElementById("commissionInputAdvanced"),
+          zecPriceInput: document.getElementById("zecPriceInput"),
         };
         const copyLinkButton = document.getElementById("copy-link-button");
+        const zecPriceSourceNote = document.getElementById("zecPriceSourceNote");
 
         const summaryElements = {
           totalShielded: document.getElementById("sumTotalShielded"),
@@ -539,6 +575,8 @@
         const pctStakedWarning = document.getElementById("pctStakedWarning");
         let isAdvancedMode = false;
         let initialAdvancedMode = false;
+        let latestFetchedPrice = Number.NaN;
+        let hasCustomPriceOverride = false;
 
         function clamp(value, min, max = Number.POSITIVE_INFINITY) {
           if (!Number.isFinite(value)) return min;
@@ -554,6 +592,8 @@
             next = clamp(next, DEFAULT_TOTAL_SHIELDED_ZEC);
           } else if (key === "pctShieldedStaked" || key === "commissionPct") {
             next = clamp(next, 0, 100);
+          } else if (key === "zecPriceUsd") {
+            next = Math.max(0, next);
           }
           if (state[key] === next) {
             return false;
@@ -592,6 +632,32 @@
         function fmtPctYield(value) {
           if (!Number.isFinite(value)) return "–";
           return pctYieldFormatter.format(value);
+        }
+
+        function fmtUsd(value) {
+          if (!Number.isFinite(value)) return "";
+          return usdFormatter.format(value);
+        }
+
+        function formatPriceInputValue(value) {
+          if (!Number.isFinite(value)) return "";
+          return value.toFixed(2);
+        }
+
+        function updatePriceNote({ success, timestamp, price }) {
+          if (!zecPriceSourceNote) return;
+          if (!success) {
+            zecPriceSourceNote.textContent = "Unable to refresh live price right now. Using the last known Blockchair value. You can override it manually.";
+            return;
+          }
+          const timeStampText = timestamp ? timeFormatter.format(timestamp) : "";
+          const priceText = Number.isFinite(price) ? fmtUsd(price) : "";
+          const prefix = "Live price updates every minute from Blockchair.";
+          const suffixParts = [];
+          if (priceText) suffixParts.push(`Current fetch: ${priceText} per ZEC`);
+          if (timeStampText) suffixParts.push(`Updated at ${timeStampText}`);
+          const suffix = suffixParts.length ? ` ${suffixParts.join(" · ")}.` : "";
+          zecPriceSourceNote.textContent = `${prefix}${suffix} Override if you prefer a custom value.`;
         }
 
         const VALUE_EPSILON = 1e-9;
@@ -722,6 +788,40 @@
           });
         }
 
+        if (advancedControls.zecPriceInput) {
+          const handlePriceInput = () => {
+            const parsed = Number.parseFloat(advancedControls.zecPriceInput.value);
+            if (!Number.isFinite(parsed)) return;
+            const matchesLatest = Number.isFinite(latestFetchedPrice)
+              && Math.abs(parsed - latestFetchedPrice) < VALUE_EPSILON;
+            hasCustomPriceOverride = !matchesLatest;
+            if (updateState("zecPriceUsd", parsed)) {
+              propagateStateChange({ skipURL: true });
+            }
+          };
+          advancedControls.zecPriceInput.addEventListener("input", handlePriceInput);
+          advancedControls.zecPriceInput.addEventListener("blur", () => {
+            const parsed = Number.parseFloat(advancedControls.zecPriceInput.value);
+            if (Number.isFinite(parsed)) {
+              advancedControls.zecPriceInput.value = formatPriceInputValue(parsed);
+              const matchesLatest = Number.isFinite(latestFetchedPrice)
+                && Math.abs(parsed - latestFetchedPrice) < VALUE_EPSILON;
+              hasCustomPriceOverride = !matchesLatest;
+              if (updateState("zecPriceUsd", parsed)) {
+                propagateStateChange({ skipURL: true });
+              }
+              return;
+            }
+            hasCustomPriceOverride = false;
+            if (Number.isFinite(latestFetchedPrice)) {
+              if (updateState("zecPriceUsd", latestFetchedPrice)) {
+                propagateStateChange({ skipURL: true });
+              }
+            }
+            advancedControls.zecPriceInput.value = formatPriceInputValue(state.zecPriceUsd);
+          });
+        }
+
         function derive(currentState) {
           const pctShieldedStaked = currentState.pctShieldedStaked;
           const delegatorZec = currentState.delegatorZec;
@@ -734,6 +834,12 @@
           const netAnnualZec = netDailyZec * DAYS_PER_YEAR;
           const annualizedPct = delegatorZec > 0 ? (netAnnualZec / delegatorZec) * 100 : 0;
           const coversStakedPool = stakedZec > 0 && delegatorZec >= stakedZec;
+          const zecPriceUsd = Number.isFinite(currentState.zecPriceUsd) && currentState.zecPriceUsd > 0
+            ? currentState.zecPriceUsd
+            : Number.NaN;
+          const netAnnualUsd = Number.isFinite(zecPriceUsd)
+            ? netAnnualZec * zecPriceUsd
+            : Number.NaN;
 
           return {
             totalShieldedZec,
@@ -746,6 +852,8 @@
             netAnnualZec,
             annualizedPct,
             coversStakedPool,
+            zecPriceUsd,
+            netAnnualUsd,
           };
         }
 
@@ -775,6 +883,14 @@
 
         function syncInputsFromState() {
           syncPillGroupsFromState();
+          if (advancedControls.zecPriceInput) {
+            const value = Number.isFinite(state.zecPriceUsd)
+              ? state.zecPriceUsd
+              : Number.isFinite(latestFetchedPrice)
+                ? latestFetchedPrice
+                : Number.NaN;
+            advancedControls.zecPriceInput.value = formatPriceInputValue(value);
+          }
         }
 
         function syncURL(derived) {
@@ -847,6 +963,44 @@
           }
         }
 
+        async function refreshZecPrice({ forceRender = false } = {}) {
+          try {
+            const response = await fetch(ZEC_PRICE_ENDPOINT, { cache: "no-store" });
+            if (!response.ok) {
+              throw new Error(`Unexpected response: ${response.status}`);
+            }
+            const payload = await response.json();
+            const maybePrice = payload?.data?.market_price_usd
+              ?? payload?.data?.stats?.market_price_usd
+              ?? payload?.data?.market_price_usd_24h;
+            const parsedPrice = Number.parseFloat(maybePrice);
+            if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+              throw new Error("Missing market price in response");
+            }
+            latestFetchedPrice = parsedPrice;
+            hasCustomPriceOverride = hasCustomPriceOverride && Number.isFinite(state.zecPriceUsd);
+            const changed = !hasCustomPriceOverride && updateState("zecPriceUsd", parsedPrice);
+            if (!hasCustomPriceOverride && !changed && !Number.isFinite(state.zecPriceUsd)) {
+              updateState("zecPriceUsd", parsedPrice);
+            }
+            updatePriceNote({ success: true, timestamp: new Date(), price: parsedPrice });
+            if (!hasCustomPriceOverride || forceRender) {
+              propagateStateChange({ syncInputs: true, skipURL: true });
+            } else {
+              syncInputsFromState();
+              const derived = derive(state);
+              render(derived);
+            }
+          } catch (error) {
+            console.warn("Blockchair price refresh failed:", error);
+            updatePriceNote({ success: false });
+            if (forceRender) {
+              const derived = derive(state);
+              render(derived);
+            }
+          }
+        }
+
         function render(derived) {
           syncPillGroupsFromState();
           summaryElements.totalShielded.textContent = fmtInt(derived.totalShieldedZec);
@@ -862,7 +1016,17 @@
           summaryElements.delegationZec.textContent = fmtZec(derived.delegatorZec);
           summaryElements.commission.textContent = fmtPct(derived.commissionPct);
           summaryElements.dailyYieldZec.textContent = `≈${fmtDailyZec(derived.netDailyZec)}`;
-          summaryElements.annualYieldZec.textContent = `≈${fmtAnnualZec(derived.netAnnualZec)}`;
+          if (summaryElements.annualYieldZec) {
+            summaryElements.annualYieldZec.textContent = `≈${fmtAnnualZec(derived.netAnnualZec)}`;
+            if (Number.isFinite(derived.netAnnualUsd)) {
+              const usdTitle = fmtUsd(derived.netAnnualUsd);
+              const priceText = Number.isFinite(derived.zecPriceUsd) ? fmtUsd(derived.zecPriceUsd) : "";
+              const titleSuffix = priceText ? ` (using ${priceText} per ZEC)` : "";
+              summaryElements.annualYieldZec.title = `≈${usdTitle} per year${titleSuffix}`;
+            } else if (summaryElements.annualYieldZec.hasAttribute("title")) {
+              summaryElements.annualYieldZec.removeAttribute("title");
+            }
+          }
           summaryElements.annualizedPct.textContent = `≈${fmtPctYield(derived.annualizedPct)}`;
           if (coverageNote) {
             coverageNote.hidden = !derived.coversStakedPool;
@@ -917,6 +1081,10 @@
 
         resetButton.addEventListener("click", () => {
           Object.assign(state, DEFAULTS);
+          hasCustomPriceOverride = false;
+          if (Number.isFinite(latestFetchedPrice)) {
+            state.zecPriceUsd = latestFetchedPrice;
+          }
           const derived = propagateStateChange({ syncInputs: true });
           if (advancedToggle) {
             toggleAdvancedMode(false);
@@ -932,9 +1100,10 @@
           });
         }
 
-        function toggleAdvancedMode(forceState) {
+        function toggleAdvancedMode(forceState, options = {}) {
+          const { force = false } = options;
           const nextState = typeof forceState === "boolean" ? forceState : !isAdvancedMode;
-          if (isAdvancedMode === nextState) return;
+          if (!force && isAdvancedMode === nextState) return;
           isAdvancedMode = nextState;
           const form = document.getElementById("controls");
           if (!form) return;
@@ -951,7 +1120,12 @@
             if (advanced) advanced.hidden = !isAdvancedMode;
           }
 
-          syncPillGroupsFromState();
+          const advancedOnly = form.querySelectorAll("[data-advanced-control]");
+          advancedOnly.forEach((element) => {
+            element.hidden = !isAdvancedMode;
+          });
+
+          syncInputsFromState();
           applyPctStakedWarning(derive(state));
         }
 
@@ -964,8 +1138,12 @@
 
         applyStateFromQuery();
         const initialDerived = propagateStateChange({ syncInputs: true, skipURL: true });
-        toggleAdvancedMode(initialAdvancedMode);
+        toggleAdvancedMode(initialAdvancedMode, { force: true });
         syncURL(initialDerived);
+        refreshZecPrice({ forceRender: true });
+        window.setInterval(() => {
+          refreshZecPrice();
+        }, PRICE_REFRESH_INTERVAL_MS);
       })();
     </script>
   </body>
